@@ -1,0 +1,424 @@
+<?php
+require_once __DIR__ . '/config/database.php';
+$err = '';
+$old = $_POST;
+
+// Ambil data provinsi saat halaman pertama dimuat
+$provinces = $conn->query("SELECT id, name FROM regions WHERE region_type='province' ORDER BY name")->fetch_all(MYSQLI_ASSOC);
+
+function h($v) {
+    return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+}
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pendaftaran Klinik Baru - KlinikKu</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+
+  <style>
+    /* Tambahan Styling untuk Error Alert */
+    .alert-error {
+        padding: 12px 16px;
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #f87171;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        font-weight: 500;
+        font-size: 14px;
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="logo-container">
+      <div class="logo-icon"><div class="logo-inner"></div></div>
+      <div class="logo-text">KlinikKu</div>
+    </div>
+    <div class="nav-actions">
+      <a href="login.php" class="btn-outline-blue">Masuk (Login)</a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="register-container">
+    
+    <!-- Page Header -->
+    <div class="register-header">
+      <h1 class="register-title">Pendaftaran Klinik Baru</h1>
+      <p class="register-subtitle">Setiap klinik memiliki ruang kerja dan data terpisah. Anda akan mendaftarkan tenant baru untuk sistem informasi klinik mandiri.</p>
+    </div>
+
+    <?php if (isset($_GET['error'])): ?>
+      <div class="alert-error"><?= h($_GET['error']) ?></div>
+    <?php endif; ?>
+
+    <!-- Stepper Dinamis -->
+    <div class="stepper" id="main-stepper">
+      <!-- Step 1 -->
+      <div class="step step-active" id="indicator-1">
+        <div class="step-circle active-circle" id="circle-1">1</div>
+        <div class="step-text">
+          <span class="step-label-small active-label" id="label-1">Aktif</span>
+          <span class="step-label-main">Profil Klinik</span>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="step step-inactive" id="indicator-2">
+        <div class="step-circle inactive-circle" id="circle-2">2</div>
+        <div class="step-text">
+          <span class="step-label-small inactive-label" id="label-2">Selanjutnya</span>
+          <span class="step-label-main">Lokasi & Wilayah</span>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="step step-inactive" id="indicator-3">
+        <div class="step-circle inactive-circle" id="circle-3">3</div>
+        <div class="step-text">
+          <span class="step-label-small inactive-label" id="label-3">Terakhir</span>
+          <span class="step-label-main">Akun Administrator</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM UTAMA -->
+    <form action="proses-registrasi.php" method="POST" id="registerForm">
+      
+      <!-- ============================== -->
+      <!-- TAHAP 1: PROFIL KLINIK         -->
+      <!-- ============================== -->
+      <div id="step-1-container" class="form-card step-container">
+        <div class="form-header">
+          <div class="form-title-group">
+            <h2>Profil Informasi Klinik</h2>
+            <p>Isi identitas klinik dan subdomain unik untuk tenant baru Anda.</p>
+          </div>
+          <div class="badge-step">Tahap 1 dari 3</div>
+        </div>
+        <div class="form-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="clinic_name">Nama Klinik *</label>
+              <input type="text" id="clinic_name" name="clinic_name" class="form-control" placeholder="Klinik Sehat Bersama" required>
+            </div>
+            <div class="form-group">
+              <label for="clinic_code">Kode Klinik / Subdomain *</label>
+              <div class="input-group">
+                <input type="text" id="clinic_code" name="clinic_code" pattern="[a-z0-9-]+" class="form-control" placeholder="klinik-sehat" required onkeyup="updatePreview()">
+                <span class="input-suffix">.platform.com</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Preview Subdomain</label>
+              <div class="form-control-readonly" id="preview-domain">namaklinik.platform.com</div>
+            </div>
+            <div class="form-group">
+              <label>Status Ketersediaan</label>
+              <div class="form-control-readonly status-container">
+                <span class="badge-success">Tersedia</span>
+                <span class="status-text">Syarat: 3-40 karakter (huruf kecil, angka, strip).</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="clinic_email">Email Klinik *</label>
+              <input type="email" id="clinic_email" name="clinic_email" class="form-control" placeholder="admin@klinik.id" required>
+            </div>
+            <div class="form-group">
+              <label for="clinic_phone">No. Telepon Resmi</label>
+              <input type="text" id="clinic_phone" name="clinic_phone" class="form-control" placeholder="+62 21...">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="timezone">Zona Waktu *</label>
+              <select id="timezone" name="timezone" class="form-control select-control" required>
+                <option value="Asia/Jakarta" selected>Asia/Jakarta (WIB)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-footer footer-right">
+          <a href="index.php"><button type="button" class="btn-outline">Batal</button></a>
+          <button type="button" class="btn-primary" onclick="goToStep(2)">Lanjut ke Lokasi</button>
+        </div>
+      </div>
+
+      <!-- ============================== -->
+      <!-- TAHAP 2: LOKASI & WILAYAH      -->
+      <!-- ============================== -->
+      <div id="step-2-container" class="form-card step-container d-none">
+        <div class="form-header header-with-badge">
+          <div class="form-title-group">
+            <h2>Informasi Lokasi & Wilayah</h2>
+            <p>Pilih wilayah secara berurutan untuk memastikan alamat klinik tercatat dengan benar.</p>
+          </div>
+          <div class="badge-step">Tahap 2 dari 3</div>
+        </div>
+        <div class="form-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="province">Provinsi *</label>
+              <select id="province" class="form-control select-control" required>
+                <option value="">Pilih provinsi</option>
+                <?php foreach ($provinces as $r): ?>
+                  <option value="<?= $r['id'] ?>"><?= h($r['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="city">Kota/Kabupaten *</label>
+              <select id="city" class="form-control select-control" required disabled>
+                <option value="">Pilih kota</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="district">Kecamatan *</label>
+              <select id="district" class="form-control select-control" required disabled>
+                <option value="">Pilih kecamatan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <!-- region_id (Desa/Kelurahan) yang akan dikirim ke POST -->
+              <label for="village">Desa/Kelurahan *</label>
+              <select name="region_id" id="village" class="form-control select-control" required disabled>
+                <option value="">Pilih kelurahan/desa</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group form-group-full">
+              <label for="address">Alamat Lengkap *</label>
+              <textarea id="address" name="address" class="form-control textarea-control" placeholder="Jalan, RT/RW, Blok, dll..." required></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="form-footer footer-between">
+          <span class="footer-note">Data lokasi akan digunakan untuk aktivasi tenant.</span>
+          <div class="footer-actions">
+            <button type="button" class="btn-outline" onclick="goToStep(1)">Kembali</button>
+            <button type="button" class="btn-primary" onclick="goToStep(3)">Lanjutkan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================== -->
+      <!-- TAHAP 3: AKUN ADMINISTRATOR    -->
+      <!-- ============================== -->
+      <div id="step-3-container" class="step-3-layout step-container d-none">
+        
+        <!-- Form Utama (Kiri) -->
+        <div class="form-main form-card">
+          <div class="form-header">
+            <div class="form-title-group">
+              <h2>Buat akun penanggung jawab</h2>
+              <p>Isi data admin utama untuk proses aktivasi dan pengelolaan awal.</p>
+            </div>
+            <div class="badge-step">Tahap 3 dari 3</div>
+          </div>
+          <div class="form-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="admin_name">Nama Lengkap Admin *</label>
+                <input type="text" id="admin_name" name="admin_name" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label for="admin_email">Email Login *</label>
+                <input type="email" id="admin_email" name="admin_email" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="admin_phone">No. Telepon / WhatsApp *</label>
+                <input type="text" id="admin_phone" name="admin_phone" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label for="password">Kata Sandi *</label>
+                <input type="password" id="password" name="password" minlength="8" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="password_confirmation">Konfirmasi Password *</label>
+                <input type="password" id="password_confirmation" name="password_confirmation" minlength="8" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-checkbox" style="margin-top: 10px;">
+              <input type="checkbox" id="terms" name="terms" required>
+              <label for="terms" class="checkbox-label" style="font-size: 13px;">Saya menyetujui Syarat & Ketentuan, Kebijakan Privasi, dan penggunaan data untuk proses aktivasi klinik.</label>
+            </div>
+            <div class="info-box box-gray" style="margin-top: 20px;">
+              <div class="info-title">Peran akun admin</div>
+              <div class="info-desc">Akun ini hanya mengelola klinik yang didaftarkan. Admin dapat menambahkan staf, mengatur akses, dan mengelola operasional klinik secara mandiri.</div>
+            </div>
+          </div>
+          <div class="form-footer footer-between">
+            <button type="button" class="btn-outline" onclick="goToStep(2)">Kembali</button>
+            <button type="submit" class="btn-primary">Daftarkan Klinik Sekarang</button>
+          </div>
+        </div>
+
+        <!-- Sidebar Ringkasan (Kanan) -->
+        <aside class="summary-sidebar">
+          <div class="summary-header">
+            <h3>Ringkasan</h3>
+            <p>Data klinik ini akan menjadi dasar akun administrator dan domain klinik.</p>
+          </div>
+          <div class="summary-body">
+            <div class="summary-card">
+              <div class="summary-item">
+                <div class="item-text">
+                  <span class="item-label">Nama Klinik</span>
+                  <span class="item-value" id="summary_name">-</span>
+                </div>
+              </div>
+              <div class="summary-item">
+                <div class="item-text">
+                  <span class="item-label">Kode Klinik</span>
+                  <span class="item-value" id="summary_code">-</span>
+                </div>
+              </div>
+              <div class="summary-item">
+                <div class="item-text">
+                  <span class="item-label">Domain Klinik</span>
+                  <span class="item-value" id="summary_domain">-</span>
+                </div>
+              </div>
+              <div class="summary-item">
+                <div class="item-text">
+                  <span class="item-label">Zona Waktu</span>
+                  <span class="item-value" id="summary_timezone">-</span>
+                </div>
+              </div>
+            </div>
+            <div class="summary-card-small">
+              <span class="item-label">Alamat Klinik</span>
+              <span class="item-value" id="summary_address">-</span>
+            </div>
+            <div class="info-box box-blue">
+              <div class="info-title-blue">Perhatian</div>
+              <div class="info-desc-blue">Pastikan seluruh data yang dimasukkan sudah benar. Pengajuan nama klinik bersifat final untuk tenant Anda.</div>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </form>
+  </main>
+
+  <script>
+    // --- FITUR 1: PREVIEW DOMAIN SAAT DIKETIK ---
+    function updatePreview() {
+      let code = document.getElementById('clinic_code').value;
+      let domain = code ? code + '.platform.com' : 'namaklinik.platform.com';
+      document.getElementById('preview-domain').innerText = domain;
+    }
+
+    // --- FITUR 2: NAVIGASI STEPPER MULTI-TAHAP ---
+    function goToStep(targetStep) {
+      document.getElementById('step-1-container').classList.add('d-none');
+      document.getElementById('step-2-container').classList.add('d-none');
+      document.getElementById('step-3-container').classList.add('d-none');
+
+      document.getElementById('step-' + targetStep + '-container').classList.remove('d-none');
+
+      for(let i=1; i<=3; i++) {
+        let stepDiv = document.getElementById('indicator-' + i);
+        let circleDiv = document.getElementById('circle-' + i);
+        let labelSpan = document.getElementById('label-' + i);
+
+        stepDiv.className = "step step-inactive";
+        circleDiv.className = "step-circle inactive-circle";
+        labelSpan.className = "step-label-small inactive-label";
+
+        if(i < targetStep) {
+          stepDiv.className = "step step-completed";
+          circleDiv.className = "step-circle completed-circle";
+          circleDiv.innerHTML = "✓";
+          labelSpan.innerText = "Selesai";
+          labelSpan.className = "step-label-small completed-label";
+        } else if (i === targetStep) {
+          stepDiv.className = "step step-active";
+          circleDiv.className = "step-circle active-circle";
+          circleDiv.innerHTML = i;
+          labelSpan.innerText = "Aktif";
+          labelSpan.className = "step-label-small active-label";
+        } else {
+          circleDiv.innerHTML = i;
+          labelSpan.innerText = (i === 2) ? "Selanjutnya" : "Terakhir";
+        }
+      }
+
+      // Render data Ringkasan jika pindah ke tahap 3
+      if (targetStep === 3) {
+        let name = document.getElementById('clinic_name').value || '-';
+        let code = document.getElementById('clinic_code').value || '-';
+        let domain = code !== '-' ? code + '.platform.com' : '-';
+        let tzSelect = document.getElementById('timezone');
+        let tz = tzSelect.options[tzSelect.selectedIndex].text;
+        let address = document.getElementById('address').value || '-';
+
+        document.getElementById('summary_name').innerText = name;
+        document.getElementById('summary_code').innerText = code;
+        document.getElementById('summary_domain').innerText = domain;
+        document.getElementById('summary_timezone').innerText = tz;
+        document.getElementById('summary_address').innerText = address;
+      }
+    }
+
+    // --- FITUR 3: API REGION LOADER (AJAX) ---
+    async function loadRegions(parent, type, target) {
+      const sel = document.getElementById(target);
+      sel.innerHTML = '<option value="">Memuat...</option>';
+      sel.disabled = true;
+
+      if (!parent) {
+        sel.innerHTML = '<option value="">Pilih wilayah</option>';
+        return;
+      }
+
+      const res = await fetch('api/regions.php?parent_id=' + encodeURIComponent(parent) + '&type=' + type);
+      const data = await res.json();
+      
+      sel.innerHTML = '<option value="">Pilih wilayah</option>';
+      data.forEach(x => {
+        const o = document.createElement('option');
+        o.value = x.id;
+        o.textContent = x.name;
+        sel.appendChild(o);
+      });
+      sel.disabled = false;
+    }
+
+    // Event listener cascading wilayah
+    document.getElementById('province').addEventListener('change', e => {
+      loadRegions(e.target.value, 'city', 'city');
+      document.getElementById('district').disabled = true;
+      document.getElementById('village').disabled = true;
+    });
+
+    document.getElementById('city').addEventListener('change', e => {
+      loadRegions(e.target.value, 'district', 'district');
+      document.getElementById('village').disabled = true;
+    });
+
+    document.getElementById('district').addEventListener('change', e => {
+      loadRegions(e.target.value, 'village', 'village');
+    });
+  </script>
+</body>
+</html>

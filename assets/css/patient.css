@@ -1,0 +1,125 @@
+/* --- PATIENT REGISTRATION SPECIFIC STYLES --- */
+
+/* Page Heading overrides */
+.page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.tab-item {
+  padding: 14px 4px;
+  color: var(--text-light);
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.tab-item.active {
+  color: var(--primary);
+  font-weight: 600;
+  border-bottom-color: var(--primary);
+}
+
+/* Data Panel Filters */
+.panel-filters {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.filter-row {
+  display: flex;
+  gap: 12px;
+}
+.filter-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+}
+.filter-select, .filter-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+  color: var(--text-gray);
+  font-size: 12px;
+}
+.filter-select { min-width: 220px; cursor: pointer; }
+.filter-date { min-width: 200px; justify-content: flex-start; }
+.filter-info {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+/* Table Specifics for Registrations */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+.queue-table th { padding: 12px 20px; }
+.queue-table td { padding: 14px 20px; vertical-align: top; } /* Mengubah vert-align ke top krn konten beda tinggi */
+
+.td-reg { font-family: 'Roboto Mono', monospace; font-size: 11px; color: var(--text-dark); margin-bottom: 3px; }
+.td-desc { font-size: 12px; color: var(--text-gray); margin-bottom: 3px; line-height: 1.4; }
+.td-sub-small { font-size: 10px; color: var(--text-light); }
+.mt-1 { margin-top: 4px; }
+
+/* Tipe Kunjungan Badges */
+.type-badge {
+  font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 6px; display: inline-block;
+  background: var(--bg-light); color: var(--text-gray);
+}
+.type-blue { background: #EFF6FF; color: var(--primary); }
+.type-red { background: #FEF2F2; color: #B91C1C; }
+
+/* Status Badges Overrides */
+.status-green { background: var(--bg-green); color: var(--green); }
+.status-red { background: #FEF2F2; color: #B91C1C; }
+
+/* Action Links */
+.action-links { display: flex; flex-direction: column; gap: 6px; }
+.link-primary { color: var(--primary); font-size: 11px; font-weight: 600; text-decoration: none; }
+.link-danger { color: #B91C1C; font-size: 11px; font-weight: 400; text-decoration: none; }
+.link-primary:hover, .link-danger:hover { text-decoration: underline; }
+
+/* Pagination */
+.pagination-footer {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.page-info { font-size: 12px; color: var(--text-light); }
+.page-controls { display: flex; align-items: center; gap: 8px; }
+.btn-page {
+  height: 40px; padding: 0 16px; background: var(--white);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-gray); font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.page-num {
+  width: 32px; height: 32px; display: flex; justify-content: center; align-items: center;
+  border-radius: 6px; font-size: 12px; font-weight: 600;
+}
+.page-num.active { background: #EFF6FF; color: var(--primary); }
+
+/* Info Note */
+.info-note { font-size: 11px; color: var(--text-light); }

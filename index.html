@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KlinikKu - Sistem Manajemen Klinik</title>
+  
+  <!-- Google Fonts: Outfit (Heading) & Inter (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+  
+  <!-- Link ke file CSS terpisah -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="logo-container">
+      <div class="logo-icon"><div class="logo-inner"></div></div>
+      <div class="logo-text">KlinikKu</div>
+    </div>
+    <nav class="nav-links">
+      <a href="#">Fitur</a>
+      <a href="#">Tentang</a>
+      <a href="#">Harga</a>
+      <a href="#">Kontak</a>
+    </nav>
+    <div class="nav-actions">
+      <a href="#" class="btn-login">Masuk</a>
+      <a href="#" class="btn-primary">Daftar Sekarang</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="badge">✨ Web-Based Clinic Management System v2.0</div>
+      <h1 class="hero-title">Kelola Klinik Anda dengan Lebih Mudah</h1>
+      <p class="hero-subtitle">Sistem manajemen klinik digital yang membantu Anda mengelola pasien, jadwal dokter, rekam medis, dan operasional klinik dalam satu platform terintegrasi.</p>
+      <a href="#" class="btn-primary btn-large">Mulai Gratis</a>
+    </div>
+    
+    <div class="hero-visual">
+      <div class="dashboard-card">
+        <div class="dashboard-header">
+          <div class="mac-buttons">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
+            <div class="header-badge">Dashboard Utama</div>
+          </div>
+          <div class="header-skeleton"></div>
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-num text-blue">148</div>
+            <div class="stat-label">Pasien</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num text-green">12</div>
+            <div class="stat-label">Antrean</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num text-indigo">5</div>
+            <div class="stat-label">Dokter Aktif</div>
+          </div>
+        </div>
+        
+        <div class="queue-list">
+          <div class="queue-title">Antrean Pasien Terkini</div>
+          <hr class="divider">
+          <div class="queue-item">
+            <div class="queue-info">
+              <span class="queue-id">RM-2026-001</span>
+              <span class="queue-name">Ayu Lestari</span>
+            </div>
+            <div class="status-badge status-active">Diperiksa</div>
+          </div>
+          <div class="queue-item">
+            <div class="queue-info">
+              <span class="queue-id">RM-2026-042</span>
+              <span class="queue-name">Rafi Pratama</span>
+            </div>
+            <div class="status-badge status-waiting">Menunggu</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features">
+    <div class="section-header">
+      <div class="subtitle">LAYANAN TERBAIK</div>
+      <h2 class="title">Fitur Unggulan KlinikKu</h2>
+      <p class="desc">Didesain khusus untuk memenuhi kebutuhan operasional klinik modern, praktis, dan aman.</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><div class="icon-inner"></div></div>
+        <h3 class="feature-title">Manajemen Pasien</h3>
+        <p class="feature-desc">Kelola data pasien, rekam medis, dan riwayat kunjungan dengan mudah dan terstruktur.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><div class="icon-inner"></div></div>
+        <h3 class="feature-title">Jadwal & Appointment</h3>
+        <p class="feature-desc">Atur jadwal praktis dokter dan booking appointment pasien secara online tanpa tumpang tindih.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><div class="icon-inner"></div></div>
+        <h3 class="feature-title">Rekam Medis Digital</h3>
+        <p class="feature-desc">Akses rekam medis pasien secara digital, aman, dan terorganisir sesuai standar akreditasi.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><div class="icon-inner"></div></div>
+        <h3 class="feature-title">Laporan & Analitik</h3>
+        <p class="feature-desc">Pantau performa klinik dengan laporan kunjungan, stok obat, dan dashboard finansial otomatis.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Banner -->
+  <section class="stats-banner">
+    <div class="stat-item">
+      <div class="stat-value">500+</div>
+      <div class="stat-name">Klinik Terdaftar</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">50.000+</div>
+      <div class="stat-name">Pasien Terlayani</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">1.000+</div>
+      <div class="stat-name">Dokter Aktif</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">99.9%</div>
+      <div class="stat-name">SLA Uptime</div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="cta-card">
+      <h2 class="cta-title">Siap Mendigitalkan Klinik Anda?</h2>
+      <p class="cta-desc">Daftar sekarang dan nikmati kemudahan mengelola pasien, resep, rekam medis, serta administrasi klinik Anda secara aman dalam satu dashboard digital.</p>
+      <a href="#" class="btn-primary btn-large">Daftar Sekarang — Gratis</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo-container">
+          <div class="logo-icon"><div class="logo-inner"></div></div>
+          <div class="logo-text">KlinikKu</div>
+        </div>
+        <p class="footer-desc">Solusi inovatif digitalisasi layanan kesehatan. Mempermudah manajemen klinik demi pelayanan pasien yang optimal.</p>
+      </div>
+      <div class="footer-links">
+        <h4 class="link-title">Produk</h4>
+        <a href="#">Fitur</a>
+        <a href="#">Harga</a>
+        <a href="#">Demo</a>
+      </div>
+      <div class="footer-links">
+        <h4 class="link-title">Perusahaan</h4>
+        <a href="#">Tentang</a>
+        <a href="#">Karir</a>
+        <a href="#">Kontak</a>
+      </div>
+      <div class="footer-links">
+        <h4 class="link-title">Legal</h4>
+        <a href="#">Kebijakan Privasi</a>
+        <a href="#">Syarat & Ketentuan</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 KlinikKu. All rights reserved.</p>
+      <p>Sistem Informasi Klinik Berlisensi</p>
+    </div>
+  </footer>
+
+</body>
+</html>
