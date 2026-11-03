@@ -1,0 +1,56 @@
+/* --- LAPORAN OPERASIONAL SPECIFIC STYLES --- */
+
+/* Form Laporan */
+.form-group-report { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+}
+
+.form-group-report label { 
+  font-size: 12px; 
+  font-weight: 600; 
+  color: var(--text-gray); 
+}
+
+.input-report { 
+  height: 40px; 
+  padding: 0 12px; 
+  border: 1px solid var(--border); 
+  border-radius: 8px; 
+  font-size: 13px; 
+  color: var(--text-dark); 
+  background: white; 
+  outline: none; 
+}
+
+/* Tombol Generate */
+.btn-generate { 
+  height: 40px; 
+  padding: 0 16px; 
+  background: var(--primary); 
+  color: white; 
+  border: none; 
+  border-radius: 8px; 
+  font-size: 13px; 
+  font-weight: 600; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  margin-top: auto; 
+}
+
+.btn-generate:hover {
+  opacity: 0.9;
+}
+
+/* Status Pill (Statistik Antrean) */
+.report-stat-pill { 
+  padding: 4px 9px; 
+  border-radius: 6px; 
+  font-size: 11px; 
+  font-weight: 600; 
+  display: inline-flex; 
+  align-items: center; 
+}
