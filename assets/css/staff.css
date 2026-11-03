@@ -208,3 +208,56 @@
 .btn-outline-gray { background: var(--white); border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-gray); cursor: pointer; }
 .btn-outline-red { background: var(--white); border: 1px solid #EF4444; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #EF4444; cursor: pointer; }
 .btn-primary-solid { background: var(--primary); border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: white; cursor: pointer; }
+
+/* --- TAMBAHAN STYLE UNTUK TAB & VERIFIKASI STAF --- */
+.text-dark { color: var(--text-dark); }
+.text-gray { color: var(--text-gray); }
+.font-semibold { font-weight: 600; }
+.badge-orange-tag {
+  background: #FEF3C7;
+  color: #B45309;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.badge-blue-tag {
+  background: #EFF6FF;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.btn-verify {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-reject {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--white);
+  color: #EF4444;
+  border: 1px solid #EF4444;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,0 +1,157 @@
+/* --- MASTER DATA SPECIFIC STYLES --- */
+
+/* Page Title Override */
+.page-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.page-title-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+/* Panel Tab Navigation */
+.tabs-container {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+.tab-item {
+  padding: 14px 4px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-gray);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tab-item.active {
+  color: var(--primary);
+  font-weight: 600;
+  border-bottom-color: var(--primary);
+}
+
+/* Master Data Panels */
+.master-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.master-header-text h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+.master-header-text p {
+  font-size: 12px;
+  color: var(--text-gray);
+}
+.badge-pill-blue {
+  background: #EFF6FF;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Page Heading overrides */
+.page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Data Panel Filters */
+.panel-filters {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.filter-row {
+  display: flex;
+  gap: 12px;
+}
+.filter-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+}
+.filter-select, .filter-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+  color: var(--text-gray);
+  font-size: 12px;
+}
+.filter-select { min-width: 220px; cursor: pointer; }
+.filter-date { min-width: 200px; justify-content: flex-start; }
+.filter-info {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+/* Table overrides for Master Data */
+.master-table td { padding: 14px 20px; vertical-align: middle; }
+.code-badge {
+  padding: 5px 9px;
+  background: var(--bg-light);
+  border-radius: 6px;
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-dark);
+}
+.badge-amber {
+  background: #FFF4D3;
+  color: #B45309;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.badge-gray {
+  background: #F1F5F9;
+  color: var(--text-gray);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Action Icons */
+.action-icons {
+  display: flex;
+  gap: 8px;
+}
+.btn-icon-edit {
+  width: 32px; height: 32px; background: white;
+  border: 1.7px solid var(--primary); border-radius: 6px;
+  cursor: pointer;
+}
+.btn-icon-delete {
+  width: 32px; height: 32px; background: white;
+  border: 1.7px solid #DC2626; border-radius: 6px;
+  cursor: pointer;
+}
