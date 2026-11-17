@@ -128,8 +128,8 @@ function statusBadgeHtml($status) {
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-subtitle">DASHBOARD KLINIK</span>
-        <span class="sidebar-title"><?= h($_SESSION['clinic_name']) ?></span>
+        <span class="sidebar-subtitle"><?= h(strtoupper($_SESSION['clinic_name'])) ?></span>
+        <span class="sidebar-title">Dashboard Klinik</span>
       </div>
       
       <nav class="sidebar-nav">

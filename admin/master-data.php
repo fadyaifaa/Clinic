@@ -158,8 +158,8 @@ if ($res_tnd) $tindakan_list = $res_tnd->fetch_all(MYSQLI_ASSOC);
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-subtitle">MASTER DATA KLINIK</span>
-        <span class="sidebar-title"><?= h(strtoupper($_SESSION['clinic_name'])) ?></span>
+        <span class="sidebar-subtitle"><?= h(strtoupper($_SESSION['clinic_name'])) ?></span>
+        <span class="sidebar-title">Master Data Klinik</span>
       </div>
       
       <nav class="sidebar-nav">
