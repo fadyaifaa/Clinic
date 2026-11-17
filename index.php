@@ -53,7 +53,7 @@ $recent = $conn->query("
     </nav>
     <div class="nav-actions">
       <a href="login.php" class="btn-login">Masuk</a>
-      <a href="registrasi-klinik.php" class="btn-primary">Daftar Sekarang</a>
+      <a href="jenis_pendaftaran.php" class="btn-primary">Daftar Sekarang</a>
     </div>
   </header>
 
