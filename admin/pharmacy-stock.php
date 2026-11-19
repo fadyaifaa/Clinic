@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -79,6 +82,82 @@ if (!function_exists('getExpiryMeta')) {
     }
 }
 
+
+if (!function_exists('ensureClinicPharmacyData')) {
+    function ensureClinicPharmacyData($conn, $clinicId) {
+        if ($clinicId <= 0) return;
+
+        // 1. Pastikan clinic_medicines ada untuk clinicId aktif
+        $stmtCheckCm = $conn->prepare("SELECT COUNT(*) FROM clinic_medicines WHERE clinic_id = ?");
+        $stmtCheckCm->bind_param('i', $clinicId);
+        $stmtCheckCm->execute();
+        $countCm = (int)$stmtCheckCm->get_result()->fetch_row()[0];
+
+        if ($countCm === 0) {
+            $defaultMeds = [
+                1 => 50, // Amoxicillin 500 mg
+                2 => 30, // Paracetamol 500 mg
+                3 => 40, // Vitamin C 1000 mg
+                4 => 50, // Ibuprofen 200 mg
+                5 => 30, // Loratadine 10 mg
+                6 => 50, // Omeprazole 20 mg
+                7 => 10, // Salbutamol inhaler
+                8 => 10  // Betamethasone 0,1%
+            ];
+            foreach ($defaultMeds as $medId => $minStock) {
+                $stmt = $conn->prepare("INSERT INTO clinic_medicines (clinic_id, medicine_id, minimum_stock, is_active) VALUES (?, ?, ?, 1)");
+                $stmt->bind_param('iid', $clinicId, $medId, $minStock);
+                $stmt->execute();
+            }
+        }
+
+        // 2. Pastikan medicine_batches ada untuk clinicId aktif
+        $stmtCheckB = $conn->prepare("
+            SELECT COUNT(*) 
+            FROM medicine_batches mb 
+            JOIN clinic_medicines cm ON cm.id = mb.clinic_medicine_id 
+            WHERE cm.clinic_id = ?
+        ");
+        $stmtCheckB->bind_param('i', $clinicId);
+        $stmtCheckB->execute();
+        $countB = (int)$stmtCheckB->get_result()->fetch_row()[0];
+
+        if ($countB === 0) {
+            $cmMap = [];
+            $stmtCmList = $conn->prepare("SELECT id, medicine_id FROM clinic_medicines WHERE clinic_id = ?");
+            $stmtCmList->bind_param('i', $clinicId);
+            $stmtCmList->execute();
+            $res = $stmtCmList->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $cmMap[(int)$r['medicine_id']] = (int)$r['id'];
+            }
+
+            $batches = [
+                ['med_id' => 1, 'batch' => 'AMX-260215', 'exp' => '2026-11-15', 'qty' => 128, 'price' => 650, 'supplier' => 'PT Sembada Farma'],
+                ['med_id' => 2, 'batch' => 'PCM-260420', 'exp' => '2026-11-20', 'qty' => 24, 'price' => 250, 'supplier' => 'PT Sembada Farma'],
+                ['med_id' => 3, 'batch' => 'VTC-260605', 'exp' => '2026-12-05', 'qty' => 42, 'price' => 1800, 'supplier' => 'CV Medika Sentosa'],
+                ['med_id' => 4, 'batch' => 'IBU-260818', 'exp' => '2027-08-18', 'qty' => 156, 'price' => 450, 'supplier' => 'PT Sembada Farma'],
+                ['med_id' => 5, 'batch' => 'LOR-260710', 'exp' => '2027-07-10', 'qty' => 18, 'price' => 900, 'supplier' => 'CV Medika Sentosa'],
+                ['med_id' => 6, 'batch' => 'OMP-260901', 'exp' => '2027-09-01', 'qty' => 98, 'price' => 1100, 'supplier' => 'PT Nusa Sehat Distribusi'],
+                ['med_id' => 7, 'batch' => 'SLB-260825', 'exp' => '2027-08-25', 'qty' => 12, 'price' => 48000, 'supplier' => 'PT Nusa Sehat Distribusi'],
+                ['med_id' => 8, 'batch' => 'BTM-260630', 'exp' => '2027-06-30', 'qty' => 8, 'price' => 6500, 'supplier' => 'CV Medika Sentosa'],
+            ];
+
+            foreach ($batches as $b) {
+                $cmId = $cmMap[$b['med_id']] ?? null;
+                if ($cmId) {
+                    $stmt = $conn->prepare("INSERT INTO medicine_batches (clinic_medicine_id, batch_number, expiry_date, quantity_on_hand, purchase_price, supplier_name, received_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                    $stmt->bind_param('issdds', $cmId, $b['batch'], $b['exp'], $b['qty'], $b['price'], $b['supplier']);
+                    $stmt->execute();
+                }
+            }
+        }
+    }
+}
+
+// Inisialisasi kelengkapan data farmasi klinik aktif
+ensureClinicPharmacyData($conn, $clinicId);
+
 if (!function_exists('formatRoleLabel')) {
     function formatRoleLabel($name) {
         switch (strtolower(trim($name))) {
@@ -90,6 +169,8 @@ if (!function_exists('formatRoleLabel')) {
         }
     }
 }
+
+
 
 // ==========================================================
 // 2. PROSES FORM SUBMIT (POST - PRG PATTERN)
@@ -279,6 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+
 // Ambil Flash Messages
 $flashSuccess = $_SESSION['flash_success'] ?? '';
 $flashError   = $_SESSION['flash_error'] ?? '';
@@ -366,8 +448,8 @@ $sqlBatches = "
         mb.id AS batch_id,
         mb.batch_number,
         mb.expiry_date,
-        mb.quantity_on_hand,
-        mb.purchase_price,
+        COALESCE(mb.quantity_on_hand, 0) AS quantity_on_hand,
+        COALESCE(mb.purchase_price, 0) AS purchase_price,
         mb.supplier_name,
         cm.id AS clinic_medicine_id,
         cm.minimum_stock,
@@ -375,9 +457,9 @@ $sqlBatches = "
         m.name AS medicine_name,
         m.unit,
         m.dosage_form
-    FROM medicine_batches mb
-    JOIN clinic_medicines cm ON cm.id = mb.clinic_medicine_id
-    JOIN medicines m ON m.id = cm.medicine_id
+    FROM clinic_medicines cm
+    INNER JOIN medicines m ON m.id = cm.medicine_id
+    LEFT JOIN medicine_batches mb ON mb.clinic_medicine_id = cm.id
     WHERE cm.clinic_id = ?
 ";
 
@@ -399,13 +481,13 @@ if ($filterExpired === 'near') {
 }
 
 if ($filterStock === 'critical') {
-    $sqlBatches .= " AND mb.quantity_on_hand <= cm.minimum_stock";
+    $sqlBatches .= " AND COALESCE(mb.quantity_on_hand, 0) <= cm.minimum_stock";
 } elseif ($filterStock === 'safe') {
-    $sqlBatches .= " AND mb.quantity_on_hand > cm.minimum_stock";
+    $sqlBatches .= " AND COALESCE(mb.quantity_on_hand, 0) > cm.minimum_stock";
 }
 
 // URUTAN FEFO OTOMATIS: Expired terdekat di paling atas
-$sqlBatches .= " ORDER BY mb.expiry_date ASC, m.name ASC";
+$sqlBatches .= " ORDER BY (mb.expiry_date IS NULL) ASC, mb.expiry_date ASC, m.name ASC";
 
 $stmtBList = $conn->prepare($sqlBatches);
 $stmtBList->bind_param($types, ...$params);
@@ -431,15 +513,19 @@ $sqlMovements = "
         mb.batch_number,
         m.name AS medicine_name,
         m.unit AS medicine_unit,
-        u.name AS user_name,
-        r.name AS user_role
+        COALESCE(u.name, 'Petugas Sistem') AS user_name,
+        COALESCE(ur_role.role_name, 'Petugas') AS user_role
     FROM stock_movements sm
     JOIN medicine_batches mb ON mb.id = sm.medicine_batch_id
     JOIN clinic_medicines cm ON cm.id = mb.clinic_medicine_id
     JOIN medicines m ON m.id = cm.medicine_id
     LEFT JOIN users u ON u.id = sm.performed_by
-    LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.clinic_id = cm.clinic_id
-    LEFT JOIN roles r ON r.id = ur.role_id
+    LEFT JOIN (
+        SELECT ur.user_id, ur.clinic_id, MIN(r.name) AS role_name
+        FROM user_roles ur
+        JOIN roles r ON r.id = ur.role_id
+        GROUP BY ur.user_id, ur.clinic_id
+    ) ur_role ON ur_role.user_id = u.id AND ur_role.clinic_id = cm.clinic_id
     WHERE cm.clinic_id = ?
 ";
 
@@ -644,6 +730,7 @@ $allBatchOptions = $stmtAllBatches->get_result()->fetch_all(MYSQLI_ASSOC);
       </div>
 
       <!-- FLASH MESSAGES -->
+       
       <?php if (!empty($flashSuccess)): ?>
         <div class="alert-flash success">
           <span>✓ <?= h($flashSuccess) ?></span>
@@ -846,13 +933,21 @@ $allBatchOptions = $stmtAllBatches->get_result()->fetch_all(MYSQLI_ASSOC);
 
                     <!-- 2. Nomor Batch -->
                     <td>
-                      <span class="batch-code"><?= h($b['batch_number']) ?></span>
+                      <?php if ($b['batch_number'] && $b['batch_number'] !== '-'): ?>
+                        <span class="batch-code"><?= h($b['batch_number']) ?></span>
+                      <?php else: ?>
+                        <span class="subtext-muted" style="font-size: 12px;">Belum ada batch</span>
+                      <?php endif; ?>
                     </td>
 
                     <!-- 3. Tanggal Expired -->
                     <td>
-                      <div class="<?= $expMeta['class'] ?>"><?= formatTanggalIndo($b['expiry_date']) ?></div>
-                      <div class="<?= $expMeta['class'] ?>" style="font-size: 11px;"><?= $expMeta['label'] ?></div>
+                      <?php if (!empty($b['expiry_date'])): ?>
+                        <div class="<?= $expMeta['class'] ?>"><?= formatTanggalIndo($b['expiry_date']) ?></div>
+                        <div class="<?= $expMeta['class'] ?>" style="font-size: 11px;"><?= $expMeta['label'] ?></div>
+                      <?php else: ?>
+                        <div class="subtext-muted">-</div>
+                      <?php endif; ?>
                     </td>
 
                     <!-- 4. Stok Sisa -->
@@ -868,20 +963,30 @@ $allBatchOptions = $stmtAllBatches->get_result()->fetch_all(MYSQLI_ASSOC);
 
                     <!-- 5. Harga Beli -->
                     <td>
-                      <div class="text-dark font-semibold">Rp <?= number_format($b['purchase_price'], 0, ',', '.') ?></div>
-                      <div class="subtext-muted">per <?= h($b['unit']) ?></div>
+                      <?php if ((float)$b['purchase_price'] > 0): ?>
+                        <div class="text-dark font-semibold">Rp <?= number_format($b['purchase_price'], 0, ',', '.') ?></div>
+                        <div class="subtext-muted">per <?= h($b['unit']) ?></div>
+                      <?php else: ?>
+                        <div class="subtext-muted">-</div>
+                      <?php endif; ?>
                     </td>
 
                     <!-- 6. Pemasok / Supplier -->
                     <td>
-                      <div class="text-gray"><?= h($b['supplier_name'] ?: '-') ?></div>
+                      <div class="text-gray"><?= h(($b['supplier_name'] && $b['supplier_name'] !== '-') ? $b['supplier_name'] : '-') ?></div>
                     </td>
 
                     <!-- 7. Aksi -->
                     <td style="text-align: right;">
-                      <button type="button" class="btn-action-adjust" onclick="openAdjustModalForBatch(<?= (int)$b['batch_id'] ?>, '<?= h(addslashes($b['medicine_name'])) ?>', '<?= h(addslashes($b['batch_number'])) ?>', <?= (float)$b['quantity_on_hand'] ?>, '<?= h($b['unit']) ?>')">
-                        Sesuaikan Stok
-                      </button>
+                      <?php if (!empty($b['batch_id'])): ?>
+                        <button type="button" class="btn-action-adjust" onclick="openAdjustModalForBatch(<?= (int)$b['batch_id'] ?>, '<?= h(addslashes($b['medicine_name'])) ?>', '<?= h(addslashes($b['batch_number'])) ?>', <?= (float)$b['quantity_on_hand'] ?>, '<?= h($b['unit']) ?>')">
+                          Sesuaikan Stok
+                        </button>
+                      <?php else: ?>
+                        <button type="button" class="btn-action-adjust" style="background:#EFF6FF; border-color:#BFDBFE; color:#2563EB;" onclick="openInputBatchForMedicine(<?= (int)$b['clinic_medicine_id'] ?>, '<?= h(addslashes($b['unit'])) ?>')">
+                          + Input Batch
+                        </button>
+                      <?php endif; ?>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -1241,6 +1346,15 @@ $allBatchOptions = $stmtAllBatches->get_result()->fetch_all(MYSQLI_ASSOC);
         document.getElementById('hidden_new_medicine_id').value = opt.getAttribute('data-medid');
       } else {
         document.getElementById('hidden_new_medicine_id').value = '0';
+      }
+    }
+
+    function openInputBatchForMedicine(cmId, unit) {
+      openInputBatchModal();
+      const selectEl = document.getElementById('input_clinic_medicine_id');
+      if (selectEl) {
+        selectEl.value = cmId;
+        onMedicineSelected(selectEl);
       }
     }
 

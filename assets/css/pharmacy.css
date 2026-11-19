@@ -540,3 +540,67 @@
 .d-none {
   display: none !important;
 }
+
+/* Memaksa tabel batch & mutasi muncul penuh */
+.data-panel {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  margin-top: 8px !important;
+  min-height: 200px;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+.data-table {
+  display: table !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+.data-table thead {
+  display: table-header-group !important;
+}
+
+.data-table tbody {
+  display: table-row-group !important;
+}
+
+.data-table tr {
+  display: table-row !important;
+}
+
+.data-table th {
+  display: table-cell !important;
+  background: #F8FAFC !important;
+  color: #64748B !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+
+.data-table td {
+  display: table-cell !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  vertical-align: middle !important;
+  color: #0F172A !important;
+}
+
+.stats-grid,
+.pharmacy-tabs-wrapper,
+.pharmacy-filter-bar,
+.data-panel,
+.fefo-banner {
+  flex-shrink: 0 !important;
+  width: 100%;
+}
