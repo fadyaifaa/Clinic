@@ -288,3 +288,32 @@ body.dashboard-body {
 .text-orange { color: #D97706; }
 .text-red { color: #DC2626; }
 .font-semibold { font-weight: 600; }
+
+/* --- PERBAIKAN GLOBAL FLEKSIBILITAS PANEL TABEL & JARAK ANTAR ELEMEN --- */
+
+/* 1. Mencegah card, filter, dan panel tabel terpotong/menyusut di dalam .content-area */
+.content-area > *,
+#content-queue > *,
+#content-master > *,
+#content-active > *,
+#content-verify > *,
+.data-panel,
+.stats-grid,
+.stats-grid-small,
+.tabs-container,
+.page-heading {
+  flex-shrink: 0 !important;
+}
+
+/* 2. Pastikan .data-panel selalu memanjang sesuai isi tabelnya (tidak terpotong) */
+.data-panel {
+  height: auto !important;
+  overflow: visible !important;
+  margin-top: 20px;
+}
+
+/* 3. Beri jarak yang konsisten antara kartu statistik dengan panel tabel di bawahnya */
+.stats-grid,
+.stats-grid-small {
+  margin-bottom: 20px;
+}

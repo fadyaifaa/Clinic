@@ -261,3 +261,233 @@
   align-items: center;
   justify-content: center;
 }
+
+/* --- PERBAIKAN FILTER, BADGE, AKSI & PAGINATION HALAMAN STAF --- */
+
+/* 1. Kotak Pencarian & Dropdown Filter Sejajar */
+.staff-filters .filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.staff-filters .filter-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+  min-width: 260px;
+}
+
+.staff-filters .filter-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 40px;
+  min-width: 170px;
+  font-size: 13px;
+  color: var(--text-gray);
+  cursor: pointer;
+}
+
+select.filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  height: 40px;
+}
+
+select.filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Form inputs & grids */
+.input-control {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--text-dark);
+  outline: none;
+  background: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+textarea.input-control {
+  resize: vertical;
+  min-height: 70px;
+}
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-field-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.form-row-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Alert Notification Banner */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.alert-banner.alert-success {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+}
+.alert-banner.alert-danger {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #991B1B;
+}
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.alert-close {
+  background: none;
+  border: none;
+  color: currentColor;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.alert-close:hover { opacity: 1; }
+
+/* 2. Badge Status Hijau & Subteks Tabel */
+.status-green {
+  background: var(--bg-green, #ECFDF5);
+  color: var(--green, #047857);
+}
+
+.td-sub-small {
+  font-size: 11.5px;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 6px; }
+
+/* 3. Link Aksi di Kolom Kanan */
+.action-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.link-primary {
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-danger {
+  color: #DC2626;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.link-primary:hover,
+.link-danger:hover {
+  text-decoration: underline;
+}
+
+/* 4. Pagination Footer Sejajar ("Sebelumnya", "1", "2", "...", "Berikutnya") */
+.pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+}
+
+.page-info {
+  font-size: 12.5px;
+  color: var(--text-light);
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-page {
+  height: 36px;
+  padding: 0 14px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-gray);
+  font-family: 'Inter', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-page:hover {
+  background: var(--bg-light);
+}
+
+.page-num {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-gray);
+}
+
+.page-num.active {
+  background: #EFF6FF;
+  color: var(--primary);
+}
