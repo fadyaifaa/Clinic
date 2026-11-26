@@ -428,8 +428,8 @@ if ($res_tnd) $tindakan_list = $res_tnd->fetch_all(MYSQLI_ASSOC);
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/dashboard.css"> 
-  <link rel="stylesheet" href="../assets/css/masterdata.css"> 
+  <link rel="stylesheet" href="../assets/css/dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/dashboard.css') ?>"> 
+  <link rel="stylesheet" href="../assets/css/masterdata.css?v=<?= filemtime(__DIR__ . '/../assets/css/masterdata.css') ?>"> 
   <style>
     .d-none { display: none !important; }
   </style>
@@ -437,44 +437,7 @@ if ($res_tnd) $tindakan_list = $res_tnd->fetch_all(MYSQLI_ASSOC);
 <body class="dashboard-body">
 
   <!-- TOP NAVBAR -->
-  <header class="topbar">
-    <div class="topbar-brand">
-      <div class="logo-icon"><div class="logo-inner"></div></div>
-      <div class="brand-info">
-        <div class="brand-name"><?= h($_SESSION['clinic_name']) ?></div>
-        <div class="brand-meta">
-          <span class="badge-blue">klinik-sehat</span>
-          <span class="meta-text">Tenant tunggal · <?= h($_SESSION['clinic_code'] ?? 'klinik') ?>.platform.com</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="flex-spacer"></div>
-    
-    <div class="search-bar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" placeholder="Cari data master..." class="search-input">
-    </div>
-    
-    <div class="datetime-widget">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      <span id="clock-top"></span>
-    </div>
-    
-    <button class="notif-btn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-      <span class="notif-dot"></span>
-    </button>
-    
-    <div class="user-profile">
-      <div class="avatar"><?= h(strtoupper(substr($_SESSION['user_name'], 0, 1))) ?></div>
-      <div class="user-info">
-        <span class="user-name"><?= h($_SESSION['user_name']) ?></span>
-        <span class="user-role">Admin Klinik</span>
-      </div>
-      <a href="../logout.php"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></a>
-    </div>
-  </header>
+  <?php require __DIR__ . '/../includes/topbar.php'; ?>
 
   <!-- MAIN LAYOUT -->
   <div class="dashboard-layout">

@@ -373,12 +373,22 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+.modal-dialog > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
 .modal-header-clean {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .modal-title-clean {
@@ -408,6 +418,8 @@
 
 .modal-body-scroll {
   padding: 24px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -481,6 +493,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .btn-modal-cancel {

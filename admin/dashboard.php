@@ -37,7 +37,7 @@ $called = fetchCount($conn, "SELECT COUNT(*) FROM registrations WHERE clinic_id=
 $rx = fetchCount($conn, "SELECT COUNT(*) FROM prescriptions WHERE clinic_id=? AND status IN ('issued','partially_dispensed')", $id);
 $rxReady = fetchCount($conn, "SELECT COUNT(*) FROM prescriptions WHERE clinic_id=? AND status='issued'", $id);
 $low = fetchCount($conn, "SELECT COUNT(*) FROM (SELECT cm.id,cm.minimum_stock,COALESCE(SUM(mb.quantity_on_hand),0) qty FROM clinic_medicines cm LEFT JOIN medicine_batches mb ON mb.clinic_medicine_id=cm.id WHERE cm.clinic_id=? AND cm.is_active=1 GROUP BY cm.id,cm.minimum_stock) x WHERE x.qty<=x.minimum_stock", $id);
-$exp = fetchCount($conn, "SELECT COUNT(*) FROM medicine_batches mb JOIN clinic_medicines cm ON cm.id=mb.clinic_medicine_id WHERE cm.clinic_id=? AND mb.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(),INTERVAL 30 DAY) AND mb.quantity_on_hand>0", $id);
+$exp = fetchCount($conn, "SELECT COUNT(*) FROM medicine_batches mb JOIN clinic_medicines cm ON cm.id=mb.clinic_medicine_id WHERE cm.clinic_id=? AND mb.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(),INTERVAL 90 DAY) AND mb.quantity_on_hand>0", $id);
 
 // Mengambil Data Tabel (Limit 10)
 $s = $conn->prepare("SELECT p.full_name, d.specialization, r.visit_type, r.status, r.registration_number FROM registrations r JOIN patients p ON p.id=r.patient_id LEFT JOIN doctors d ON d.id=r.doctor_id WHERE r.clinic_id=? AND DATE(r.registration_date)=CURDATE() ORDER BY r.created_at DESC LIMIT 10");
@@ -45,7 +45,7 @@ $s->bind_param('i', $id);
 $s->execute();
 $registrations = $s->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$s = $conn->prepare("SELECT m.name, mb.batch_number, mb.expiry_date, mb.quantity_on_hand, cm.minimum_stock FROM medicine_batches mb JOIN clinic_medicines cm ON cm.id=mb.clinic_medicine_id JOIN medicines m ON m.id=cm.medicine_id WHERE cm.clinic_id=? AND mb.quantity_on_hand>0 AND (mb.quantity_on_hand<=cm.minimum_stock OR mb.expiry_date<=DATE_ADD(CURDATE(),INTERVAL 30 DAY)) ORDER BY mb.expiry_date LIMIT 10");
+$s = $conn->prepare("SELECT m.name, m.unit, mb.batch_number, mb.expiry_date, mb.quantity_on_hand, cm.minimum_stock FROM medicine_batches mb JOIN clinic_medicines cm ON cm.id=mb.clinic_medicine_id JOIN medicines m ON m.id=cm.medicine_id WHERE cm.clinic_id=? AND mb.quantity_on_hand>0 AND (mb.quantity_on_hand<=cm.minimum_stock OR mb.expiry_date<=DATE_ADD(CURDATE(),INTERVAL 90 DAY)) ORDER BY mb.expiry_date ASC LIMIT 10");
 $s->bind_param('i', $id);
 $s->execute();
 $stocks = $s->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -78,49 +78,12 @@ function statusBadgeHtml($status) {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/dashboard.css"> 
+  <link rel="stylesheet" href="../assets/css/dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/dashboard.css') ?>"> 
 </head>
 <body class="dashboard-body">
 
   <!-- TOP NAVBAR -->
-  <header class="topbar">
-    <div class="topbar-brand">
-      <div class="logo-icon"><div class="logo-inner"></div></div>
-      <div class="brand-info">
-        <div class="brand-name"><?= h($_SESSION['clinic_name']) ?></div>
-        <div class="brand-meta">
-          <span class="badge-blue">klinik-sehat</span>
-          <span class="meta-text">Tenant tunggal · <?= h($_SESSION['clinic_code'] ?? 'klinik') ?>.platform.com</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="flex-spacer"></div>
-    
-    <div class="search-bar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" placeholder="Cari No. RM / Nama Pasien" class="search-input">
-    </div>
-    
-    <div class="datetime-widget">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      <span id="clock-top"></span>
-    </div>
-    
-    <button class="notif-btn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-      <span class="notif-dot"></span>
-    </button>
-    
-    <div class="user-profile">
-      <div class="avatar"><?= h(strtoupper(substr($_SESSION['user_name'], 0, 1))) ?></div>
-      <div class="user-info">
-        <span class="user-name"><?= h($_SESSION['user_name']) ?></span>
-        <span class="user-role">Admin Klinik</span>
-      </div>
-      <a href="../logout.php"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></a>
-    </div>
-  </header>
+  <?php require __DIR__ . '/../includes/topbar.php'; ?>
 
   <!-- MAIN LAYOUT -->
   <div class="dashboard-layout">
@@ -149,7 +112,7 @@ function statusBadgeHtml($status) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
           Master Data Klinik
         </a>
-        <a href="farmasi-stok.php" class="nav-item">
+        <a href="pharmacy-stock.php" class="nav-item">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           Farmasi & Stok
         </a>
@@ -158,8 +121,7 @@ function statusBadgeHtml($status) {
           Laporan Operasional
         </a>
         <a href="pengaturan-klinik.php" class="nav-item">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0
-
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           Pengaturan Klinik
         </a>
       </nav>
@@ -247,7 +209,7 @@ function statusBadgeHtml($status) {
               <h3>Ringkasan Registrasi Pasien Hari Ini</h3>
               <p>Tabel registrasi kunjungan aktif klinik ini</p>
             </div>
-            <button class="btn-primary-small">+ Registrasi Pasien Baru</button>
+            <button type="button" class="btn-primary-small" onclick="window.location.href='patient-registration.php'">+ Registrasi Kunjungan Baru</button>
           </div>
 
           <div class="table-responsive">
@@ -317,19 +279,19 @@ function statusBadgeHtml($status) {
                   </tr>
                 <?php else: ?>
                   <?php foreach ($stocks as $r): 
-                    $near = !empty($r['expiry_date']) && $r['expiry_date'] <= date('Y-m-d', strtotime('+30 days'));
+                    $near = !empty($r['expiry_date']) && $r['expiry_date'] <= date('Y-m-d', strtotime('+90 days'));
                     $isLow = $r['quantity_on_hand'] <= $r['minimum_stock'];
                   ?>
                     <tr>
                       <td><div class="td-main"><?= h($r['name']) ?></div></td>
                       <td><div class="td-desc"><?= h($r['batch_number']) ?></div></td>
                       <td><div class="td-desc"><?= h(date('d M Y', strtotime($r['expiry_date']))) ?></div></td>
-                      <td><div class="<?= $isLow ? 'text-red font-semibold' : 'td-desc' ?>"><?= h($r['quantity_on_hand']) ?></div></td>
+                      <td><div class="<?= ($isLow || $near) ? 'text-red font-semibold' : 'td-desc' ?>"><?= (float)$r['quantity_on_hand'] ?> <?= h($r['unit'] ?? '') ?></div></td>
                       <td>
-                          <?php if ($near): ?>
-                              <span class="link-orange">Mendekati expired</span>
-                          <?php elseif ($isLow): ?>
-                              <span class="link-orange">Stok menipis</span>
+                          <?php if ($isLow): ?>
+                              <span class="link-orange">Ajukan restok</span>
+                          <?php elseif ($near): ?>
+                              <span class="link-orange">Periksa batch</span>
                           <?php else: ?>
                               <span class="link-orange">Periksa batch</span>
                           <?php endif; ?>

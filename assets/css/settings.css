@@ -1,0 +1,330 @@
+/* --- PENGATURAN KLINIK (SETTINGS) SPECIFIC STYLES --- */
+
+/* Pastikan seluruh card dan section tidak menyusut / terpotong di dalam .content-area */
+.content-area > *,
+.settings-form,
+.settings-card,
+.settings-actions-bar {
+  flex-shrink: 0 !important;
+}
+
+.settings-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  height: auto !important;
+  overflow: visible !important;
+  margin-bottom: 20px;
+}
+
+.settings-card-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.settings-card-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0 0 4px 0;
+}
+
+.settings-card-header p {
+  font-size: 12px;
+  color: var(--text-gray);
+  margin: 0;
+}
+
+.settings-card-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.settings-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .settings-grid-2,
+  .settings-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.form-field .field-hint {
+  font-size: 11.5px;
+  color: var(--text-light);
+}
+
+.input-setting {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: var(--text-dark);
+  background: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-setting:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.input-setting[readonly] {
+  background: #F8FAFC;
+  color: var(--text-gray);
+  cursor: not-allowed;
+}
+
+textarea.input-setting {
+  resize: vertical;
+  min-height: 80px;
+}
+
+select.input-setting {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  cursor: pointer;
+}
+
+/* Logo Upload Preview */
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.logo-preview-box {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.logo-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logo-upload-info {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logo-upload-info strong {
+  font-size: 13.5px;
+  color: var(--text-dark);
+}
+
+.logo-upload-info span {
+  font-size: 12px;
+  color: var(--text-gray);
+}
+
+.btn-upload-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+  width: fit-content;
+  transition: all 0.15s;
+}
+
+.btn-upload-logo:hover {
+  background: #EFF6FF;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Toggle Switch / Checkbox Row */
+.setting-toggle-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.setting-toggle-text strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+
+.setting-toggle-text span {
+  font-size: 12px;
+  color: var(--text-gray);
+}
+
+/* Bottom Action Bar */
+.settings-actions-bar {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.actions-meta {
+  font-size: 12px;
+  color: var(--text-gray);
+}
+
+.actions-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-reset-settings {
+  padding: 10px 18px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-gray);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-reset-settings:hover {
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+
+.btn-save-settings {
+  padding: 10px 22px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+
+.btn-save-settings:hover {
+  background: #1D4ED8;
+}
+
+/* Alert Notification Banner */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.alert-banner.alert-success {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+}
+.alert-banner.alert-danger {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #991B1B;
+}
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.alert-close {
+  background: none;
+  border: none;
+  color: currentColor;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.alert-close:hover { opacity: 1; }
+
+.badge-readonly {
+  background: #F1F5F9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}

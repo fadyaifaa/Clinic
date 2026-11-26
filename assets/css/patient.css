@@ -123,3 +123,212 @@
 
 /* Info Note */
 .info-note { font-size: 11px; color: var(--text-light); }
+
+/* Modal Components (Konsisten dengan Master Data & Farmasi) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.modal-dialog {
+  background: #FFFFFF;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-dialog > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+.modal-header-clean {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.modal-title-clean {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+}
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close-btn:hover {
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+.modal-body-scroll {
+  padding: 24px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form-row-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-field-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.form-field-group .input-control {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--text-dark);
+  outline: none;
+  background: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-field-group .input-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.form-field-group .input-control[readonly] {
+  background: #F8FAFC;
+  color: var(--text-gray);
+  cursor: not-allowed;
+}
+.form-field-group textarea.input-control {
+  resize: vertical;
+  min-height: 70px;
+}
+.modal-footer-clean {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: #F8FAFC;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.btn-modal-cancel {
+  padding: 9px 18px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-gray);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-modal-cancel:hover {
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+.btn-modal-save {
+  padding: 9px 20px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-modal-save:hover {
+  background: #1D4ED8;
+}
+.btn-modal-delete {
+  padding: 9px 20px;
+  background: #DC2626;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-modal-delete:hover {
+  background: #B91C1C;
+}
+
+/* Alert Notification Banner */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.alert-banner.alert-success {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+}
+.alert-banner.alert-danger {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #991B1B;
+}
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.alert-close {
+  background: none;
+  border: none;
+  color: currentColor;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.alert-close:hover { opacity: 1; }

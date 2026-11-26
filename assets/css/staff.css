@@ -133,12 +133,22 @@
   overflow: hidden;
 }
 
+.modal-container > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
 .modal-header {
   padding: 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-shrink: 0;
 }
 .modal-title-group h2 { font-size: 20px; font-weight: 600; color: var(--text-dark); margin: 0 0 5px 0; }
 .modal-title-group p { font-size: 12px; color: var(--text-light); margin: 0; }
@@ -146,6 +156,8 @@
 
 .modal-body {
   padding: 24px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -203,6 +215,7 @@
 .modal-footer {
   padding: 18px 24px; background: var(--bg-light); border-top: 1px solid var(--border);
   display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0;
 }
 .footer-actions { display: flex; gap: 12px; }
 .btn-outline-gray { background: var(--white); border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-gray); cursor: pointer; }

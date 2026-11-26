@@ -1,11 +1,14 @@
 <?php
 session_start();
 
-// 1. Data login (Bypass sementara)
-$_SESSION['clinic_id'] = 1; 
-$_SESSION['clinic_name'] = 'Klinik Sehat Bersama';
-$_SESSION['clinic_code'] = 'klinik-sehat';
-$_SESSION['user_name'] = 'Dahlia Cahya';
+// 1. Data login (Bypass sementara jika sistem auth belum siap)
+if (!isset($_SESSION['clinic_id'])) {
+    $_SESSION['clinic_id']   = 1;
+    $_SESSION['clinic_name'] = 'Klinik Sehat Bersama';
+    $_SESSION['clinic_code'] = 'klinik-sehat';
+    $_SESSION['user_name']   = 'Dahlia Cahya';
+    $_SESSION['user_id']     = 1;
+}
 
 // 2. Panggil koneksi database
 require_once __DIR__ . '/../config/database.php';
@@ -15,7 +18,6 @@ function h($string) {
     return htmlspecialchars((string)$string, ENT_QUOTES, 'UTF-8');
 }
 
-// Fungsi fetchCount yang sudah diperbaiki (Parameter $id opsional)
 function fetchCount($conn, $sql, $id = null) {
     $stmt = $conn->prepare($sql);
     if ($stmt) {
@@ -29,54 +31,575 @@ function fetchCount($conn, $sql, $id = null) {
     return 0;
 }
 
-$clinic_id = (int)$_SESSION['clinic_id'];
+function formatTanggalIndoShort($dateStr) {
+    if (!$dateStr) return '-';
+    $ts = strtotime($dateStr);
+    if (!$ts) return '-';
+    $bulan = [
+        1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+        5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu',
+        9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'
+    ];
+    return date('d', $ts) . ' ' . $bulan[(int)date('n', $ts)] . ' ' . date('Y', $ts);
+}
 
-/* 
-  ========================================================================
-  INSTRUKSI DATABASE:
-  Halaman ini memanggil tabel `report_queue`. Jika tabel ini belum ada 
-  di database Anda, query di bawah akan mengembalikan nilai kosong (0) 
-  dan tabel HTML akan memunculkan pesan "Belum ada antrean laporan".
-  
-  Kolom yang dibutuhkan di tabel report_queue minimal:
-  - id, clinic_id, title, report_type, date_range, format_file, 
-  - created_by, created_at, status (completed/queued/processing/failed), 
-  - file_size, completed_at, error_message
-  ========================================================================
-*/
+function formatBytes($bytes) {
+    if ($bytes >= 1048576) return number_format($bytes / 1048576, 1) . ' MB';
+    if ($bytes >= 1024) return number_format($bytes / 1024, 1) . ' KB';
+    return $bytes . ' B';
+}
 
-// 4. Tarik Statistik Laporan dari Database
-$total_reports = fetchCount($conn, "SELECT COUNT(*) FROM report_queue WHERE clinic_id=?", $clinic_id);
-$completed_reports = fetchCount($conn, "SELECT COUNT(*) FROM report_queue WHERE clinic_id=? AND status='completed'", $clinic_id);
-$queued_reports = fetchCount($conn, "SELECT COUNT(*) FROM report_queue WHERE clinic_id=? AND status IN ('queued', 'processing')", $clinic_id);
-$failed_reports = fetchCount($conn, "SELECT COUNT(*) FROM report_queue WHERE clinic_id=? AND status='failed'", $clinic_id);
+function getReportTypeLabel($type) {
+    $map = [
+        'kunjungan_pasien'      => 'Kunjungan & Pasien',
+        'rekam_medis_diagnosis' => 'Rekam Medis & Diagnosis',
+        'farmasi_stok'          => 'Farmasi & Stok Obat',
+        'keuangan_pendapatan'   => 'Keuangan & Pendapatan',
+    ];
+    return $map[$type] ?? ucwords(str_replace('_', ' ', (string)$type));
+}
 
-// 5. Tarik Daftar Antrean Laporan
-$report_list = [];
-$sql_reports = "SELECT * FROM report_queue WHERE clinic_id=? ORDER BY created_at DESC LIMIT 10";
-$stmt = $conn->prepare($sql_reports);
-if ($stmt) {
-    $stmt->bind_param('i', $clinic_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result) {
-        $report_list = $result->fetch_all(MYSQLI_ASSOC);
+function getDefaultReportTitle($type) {
+    $map = [
+        'kunjungan_pasien'      => 'Rekap Kunjungan & Pasien',
+        'rekam_medis_diagnosis' => 'Rekap Rekam Medis & Diagnosis',
+        'farmasi_stok'          => 'Laporan Farmasi & Stok Obat',
+        'keuangan_pendapatan'   => 'Laporan Keuangan & Pendapatan',
+    ];
+    return $map[$type] ?? 'Laporan Operasional Klinik';
+}
+
+function generateReportFile($conn, $clinicId, $clinicName, $reportCode, $reportType, $startDate, $endDate, $fileFormat) {
+    $uploadDir = __DIR__ . '/../uploads/reports';
+    if (!is_dir($uploadDir)) {
+        if (!mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+            throw new Exception('Gagal membuat direktori penyimpanan laporan.');
+        }
     }
+
+    $headers = [];
+    $rows = [];
+    $summaryNote = '';
+
+    if ($reportType === 'kunjungan_pasien') {
+        $headers = ['No. Registrasi', 'Waktu Kunjungan', 'Nama Pasien', 'No. RM', 'Dokter', 'Tipe Kunjungan', 'Status', 'Keluhan'];
+        $stmt = $conn->prepare("
+            SELECT r.registration_number, r.registration_date, p.full_name,
+                   COALESCE(pc.medical_record_number, '-') AS mrn,
+                   COALESCE(u.name, 'Poli Umum') AS doctor_name,
+                   r.visit_type, r.status, COALESCE(r.complaint, '-') AS complaint
+            FROM registrations r
+            JOIN patients p ON p.id = r.patient_id
+            LEFT JOIN patient_clinics pc ON pc.patient_id = p.id AND pc.clinic_id = r.clinic_id
+            LEFT JOIN doctors d ON d.id = r.doctor_id
+            LEFT JOIN users u ON u.id = d.user_id
+            WHERE r.clinic_id = ? AND DATE(r.registration_date) BETWEEN ? AND ?
+            ORDER BY r.registration_date DESC
+        ");
+        $stmt->bind_param('iss', $clinicId, $startDate, $endDate);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = [
+                $r['registration_number'],
+                date('d/m/Y H:i', strtotime($r['registration_date'])),
+                $r['full_name'],
+                $r['mrn'],
+                $r['doctor_name'],
+                $r['visit_type'],
+                $r['status'],
+                $r['complaint'],
+            ];
+        }
+        $summaryNote = 'Total Kunjungan: ' . count($rows);
+    } elseif ($reportType === 'rekam_medis_diagnosis') {
+        $headers = ['No. Registrasi', 'Tanggal Periksa', 'Nama Pasien', 'No. RM', 'Kode ICD', 'Diagnosis', 'Tipe Diagnosis', 'Status RM'];
+        $stmt = $conn->prepare("
+            SELECT r.registration_number, mr.created_at, p.full_name,
+                   COALESCE(pc.medical_record_number, '-') AS mrn,
+                   COALESCE(dg.code, '-') AS icd_code,
+                   COALESCE(dg.name, '-') AS diagnosis_name,
+                   COALESCE(mrd.diagnosis_type, '-') AS diagnosis_type,
+                   mr.status
+            FROM medical_records mr
+            JOIN visits v ON v.id = mr.visit_id
+            JOIN registrations r ON r.id = v.registration_id
+            JOIN patients p ON p.id = r.patient_id
+            LEFT JOIN patient_clinics pc ON pc.patient_id = p.id AND pc.clinic_id = r.clinic_id
+            LEFT JOIN medical_record_diagnoses mrd ON mrd.medical_record_id = mr.id
+            LEFT JOIN diagnoses dg ON dg.id = mrd.diagnosis_id
+            WHERE r.clinic_id = ? AND DATE(mr.created_at) BETWEEN ? AND ?
+            ORDER BY mr.created_at DESC
+        ");
+        $stmt->bind_param('iss', $clinicId, $startDate, $endDate);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = [
+                $r['registration_number'],
+                date('d/m/Y H:i', strtotime($r['created_at'])),
+                $r['full_name'],
+                $r['mrn'],
+                $r['icd_code'],
+                $r['diagnosis_name'],
+                $r['diagnosis_type'],
+                $r['status'],
+            ];
+        }
+        $summaryNote = 'Total Catatan Rekam Medis & Diagnosis: ' . count($rows);
+    } elseif ($reportType === 'farmasi_stok') {
+        $headers = ['Waktu Mutasi', 'Kode Obat', 'Nama Obat', 'Nomor Batch', 'Expired', 'Tipe Mutasi', 'Jumlah', 'Satuan', 'Sisa Batch', 'Petugas', 'Catatan'];
+        $stmt = $conn->prepare("
+            SELECT sm.movement_at, m.medicine_code, m.name AS medicine_name,
+                   mb.batch_number, mb.expiry_date, sm.movement_type, sm.quantity,
+                   m.unit, mb.quantity_on_hand,
+                   COALESCE(u.name, 'Sistem') AS officer_name,
+                   COALESCE(sm.notes, '-') AS notes
+            FROM stock_movements sm
+            JOIN medicine_batches mb ON mb.id = sm.medicine_batch_id
+            JOIN clinic_medicines cm ON cm.id = mb.clinic_medicine_id
+            JOIN medicines m ON m.id = cm.medicine_id
+            LEFT JOIN users u ON u.id = sm.performed_by
+            WHERE cm.clinic_id = ? AND DATE(sm.movement_at) BETWEEN ? AND ?
+            ORDER BY sm.movement_at DESC
+        ");
+        $stmt->bind_param('iss', $clinicId, $startDate, $endDate);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = [
+                date('d/m/Y H:i', strtotime($r['movement_at'])),
+                $r['medicine_code'],
+                $r['medicine_name'],
+                $r['batch_number'],
+                $r['expiry_date'] ? date('d/m/Y', strtotime($r['expiry_date'])) : '-',
+                strtoupper($r['movement_type']),
+                $r['quantity'],
+                $r['unit'],
+                $r['quantity_on_hand'],
+                $r['officer_name'],
+                $r['notes'],
+            ];
+        }
+        $summaryNote = 'Total Mutasi Stok Periode Ini: ' . count($rows);
+    } elseif ($reportType === 'keuangan_pendapatan') {
+        $headers = ['No. Registrasi', 'Tanggal Tindakan', 'Nama Pasien', 'Kode Tindakan', 'Nama Tindakan', 'Qty', 'Tarif Satuan (Rp)', 'Subtotal (Rp)'];
+        $stmt = $conn->prepare("
+            SELECT r.registration_number, COALESCE(mra.performed_at, mr.created_at) AS action_date,
+                   p.full_name, COALESCE(ma.code, '-') AS action_code, ma.name AS action_name,
+                   mra.quantity, mra.unit_price, (mra.quantity * mra.unit_price) AS subtotal
+            FROM medical_record_actions mra
+            JOIN medical_actions ma ON ma.id = mra.medical_action_id
+            JOIN medical_records mr ON mr.id = mra.medical_record_id
+            JOIN visits v ON v.id = mr.visit_id
+            JOIN registrations r ON r.id = v.registration_id
+            JOIN patients p ON p.id = r.patient_id
+            WHERE r.clinic_id = ? AND DATE(COALESCE(mra.performed_at, mr.created_at)) BETWEEN ? AND ?
+            ORDER BY action_date DESC
+        ");
+        $stmt->bind_param('iss', $clinicId, $startDate, $endDate);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $totalRevenue = 0;
+        while ($r = $res->fetch_assoc()) {
+            $sub = (float)$r['subtotal'];
+            $totalRevenue += $sub;
+            $rows[] = [
+                $r['registration_number'],
+                date('d/m/Y H:i', strtotime($r['action_date'])),
+                $r['full_name'],
+                $r['action_code'],
+                $r['action_name'],
+                $r['quantity'],
+                number_format((float)$r['unit_price'], 0, ',', '.'),
+                number_format($sub, 0, ',', '.'),
+            ];
+        }
+        $summaryNote = 'Total Tindakan: ' . count($rows) . ' · Total Pendapatan: Rp ' . number_format($totalRevenue, 0, ',', '.');
+    } else {
+        throw new Exception('Jenis laporan tidak dikenali.');
+    }
+
+    $titleLabel = getDefaultReportTitle($reportType);
+    $periodText = formatTanggalIndoShort($startDate) . ' - ' . formatTanggalIndoShort($endDate);
+
+    if (stripos($fileFormat, 'Excel') !== false || stripos($fileFormat, 'CSV') !== false) {
+        $filename = $reportCode . '.csv';
+        $absPath  = $uploadDir . '/' . $filename;
+        $relPath  = 'uploads/reports/' . $filename;
+
+        $fp = fopen($absPath, 'w');
+        if (!$fp) {
+            throw new Exception('Gagal menulis file CSV laporan.');
+        }
+        // UTF-8 BOM agar Excel langsung membaca karakter Indonesia dengan benar
+        fwrite($fp, "\xEF\xBB\xBF");
+        fputcsv($fp, [$clinicName . ' - ' . $titleLabel]);
+        fputcsv($fp, ['Kode Laporan', $reportCode, 'Periode', $periodText, 'Ringkasan', $summaryNote]);
+        fputcsv($fp, []);
+        fputcsv($fp, $headers);
+        foreach ($rows as $row) {
+            fputcsv($fp, $row);
+        }
+        if (empty($rows)) {
+            fputcsv($fp, ['Tidak ada data transaksi pada periode yang dipilih.']);
+        }
+        fclose($fp);
+
+        return [
+            'file_path' => $relPath,
+            'file_size' => formatBytes(filesize($absPath)),
+            'row_count' => count($rows),
+        ];
+    } else {
+        // Format PDF (Print-Ready HTML View yang bisa langsung Save as PDF / Cetak)
+        $filename = $reportCode . '.html';
+        $absPath  = $uploadDir . '/' . $filename;
+        $relPath  = 'uploads/reports/' . $filename;
+
+        $tableHeadHtml = '';
+        foreach ($headers as $head) {
+            $tableHeadHtml .= '<th>' . h($head) . '</th>';
+        }
+        $tableBodyHtml = '';
+        if (empty($rows)) {
+            $tableBodyHtml = '<tr><td colspan="' . count($headers) . '" style="text-align:center; padding:24px; color:#64748B;">Tidak ada data pada periode ' . h($periodText) . '.</td></tr>';
+        } else {
+            foreach ($rows as $row) {
+                $tableBodyHtml .= '<tr>';
+                foreach ($row as $cell) {
+                    $tableBodyHtml .= '<td>' . h($cell) . '</td>';
+                }
+                $tableBodyHtml .= '</tr>';
+            }
+        }
+
+        $htmlContent = '<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>' . h($titleLabel) . ' - ' . h($reportCode) . '</title>
+<style>
+  body { font-family: Inter, Arial, sans-serif; color: #0F172A; margin: 32px; background: #fff; }
+  .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
+  .btn-print { background: #2563EB; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  .header { border-bottom: 2px solid #0F172A; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .clinic-name { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; }
+  .report-title { font-size: 15px; font-weight: 600; color: #2563EB; margin: 0; }
+  .meta { text-align: right; font-size: 12px; color: #475569; line-height: 1.6; }
+  .summary-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #F1F5F9; color: #334155; text-align: left; padding: 9px 10px; border: 1px solid #CBD5E1; font-weight: 600; }
+  td { padding: 8px 10px; border: 1px solid #E2E8F0; color: #1E293B; }
+  @media print { .toolbar { display: none; } body { margin: 12px; } }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">Cetak / Simpan sebagai PDF</button>
+  </div>
+  <div class="header">
+    <div>
+      <h1 class="clinic-name">' . h($clinicName) . '</h1>
+      <p class="report-title">' . h($titleLabel) . '</p>
+    </div>
+    <div class="meta">
+      <div>Kode: <strong>' . h($reportCode) . '</strong></div>
+      <div>Periode: <strong>' . h($periodText) . '</strong></div>
+      <div>Dicetak: ' . date('d/m/Y H:i') . ' WIB</div>
+    </div>
+  </div>
+  <div class="summary-box">' . h($summaryNote) . '</div>
+  <table>
+    <thead><tr>' . $tableHeadHtml . '</tr></thead>
+    <tbody>' . $tableBodyHtml . '</tbody>
+  </table>
+</body>
+</html>';
+
+        if (file_put_contents($absPath, $htmlContent) === false) {
+            throw new Exception('Gagal menyimpan file PDF/Print View laporan.');
+        }
+
+        return [
+            'file_path' => $relPath,
+            'file_size' => formatBytes(filesize($absPath)),
+            'row_count' => count($rows),
+        ];
+    }
+}
+
+$clinic_id   = (int)$_SESSION['clinic_id'];
+$userId      = (int)($_SESSION['user_id'] ?? 1);
+$clinicName  = $_SESSION['clinic_name'] ?? 'Klinik Sehat Bersama';
+
+// 4. ENDPOINT UNDUH / BUKA FILE LAPORAN (?download=ID)
+if (isset($_GET['download'])) {
+    $dlId = (int)$_GET['download'];
+    $stmtDl = $conn->prepare("SELECT * FROM reports WHERE id = ? AND clinic_id = ? AND status = 'completed'");
+    if ($stmtDl) {
+        $stmtDl->bind_param('ii', $dlId, $clinic_id);
+        $stmtDl->execute();
+        $rep = $stmtDl->get_result()->fetch_assoc();
+        if ($rep && !empty($rep['file_path'])) {
+            $safeBase = realpath(__DIR__ . '/../uploads/reports');
+            $targetPath = realpath(__DIR__ . '/../' . $rep['file_path']);
+            if ($safeBase && $targetPath && strpos($targetPath, $safeBase) === 0 && is_file($targetPath)) {
+                $ext = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
+                if ($ext === 'csv') {
+                    header('Content-Type: text/csv; charset=UTF-8');
+                    header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
+                    readfile($targetPath);
+                    exit;
+                } else {
+                    header('Content-Type: text/html; charset=UTF-8');
+                    readfile($targetPath);
+                    exit;
+                }
+            }
+        }
+    }
+    $_SESSION['flash_error'] = 'File laporan tidak ditemukan atau belum selesai diproses.';
+    header('Location: laporan-operasional.php');
+    exit;
+}
+
+// 5. HANDLER POST (BUAT LAPORAN BARU / BUAT ULANG)
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'generate_report') {
+        $reportType = trim($_POST['report_type'] ?? 'kunjungan_pasien');
+        $startDate  = trim($_POST['start_date'] ?? date('Y-m-01'));
+        $endDate    = trim($_POST['end_date'] ?? date('Y-m-d'));
+        $fileFormat = trim($_POST['file_format'] ?? 'PDF');
+
+        $allowedTypes = ['kunjungan_pasien', 'rekam_medis_diagnosis', 'farmasi_stok', 'keuangan_pendapatan'];
+        if (!in_array($reportType, $allowedTypes, true)) {
+            $reportType = 'kunjungan_pasien';
+        }
+        $allowedFormats = ['PDF', 'Excel'];
+        if (!in_array($fileFormat, $allowedFormats, true)) {
+            $fileFormat = 'PDF';
+        }
+
+        if ($startDate === '' || $endDate === '' || strtotime($startDate) > strtotime($endDate)) {
+            $_SESSION['flash_error'] = 'Rentang tanggal tidak valid. Tanggal mulai tidak boleh melebihi tanggal akhir.';
+            header('Location: laporan-operasional.php');
+            exit;
+        }
+
+        $seq = fetchCount($conn, "SELECT COUNT(*) FROM reports WHERE clinic_id = ?", $clinic_id) + 1;
+        $reportCode = 'RPT-' . date('Ym') . '-' . str_pad((string)$seq, 3, '0', STR_PAD_LEFT);
+        $title = getDefaultReportTitle($reportType);
+
+        $initParams = json_encode([
+            'report_code'   => $reportCode,
+            'start_date'    => $startDate,
+            'end_date'      => $endDate,
+            'file_format'   => $fileFormat,
+            'file_size'     => null,
+            'row_count'     => 0,
+            'error_message' => null,
+        ]);
+
+        // Simpan permintaan awal
+        $stmtIns = $conn->prepare("
+            INSERT INTO reports (clinic_id, created_by, report_type, title, parameters, status)
+            VALUES (?, ?, ?, ?, ?, 'processing')
+        ");
+        $stmtIns->bind_param('iisss', $clinic_id, $userId, $reportType, $title, $initParams);
+        $stmtIns->execute();
+        $reportId = $stmtIns->insert_id;
+
+        try {
+            $gen = generateReportFile($conn, $clinic_id, $clinicName, $reportCode, $reportType, $startDate, $endDate, $fileFormat);
+
+            $doneParams = json_encode([
+                'report_code'   => $reportCode,
+                'start_date'    => $startDate,
+                'end_date'      => $endDate,
+                'file_format'   => $fileFormat,
+                'file_size'     => $gen['file_size'],
+                'row_count'     => $gen['row_count'],
+                'error_message' => null,
+            ]);
+
+            $stmtUpd = $conn->prepare("
+                UPDATE reports
+                SET status = 'completed', file_path = ?, parameters = ?, completed_at = NOW()
+                WHERE id = ? AND clinic_id = ?
+            ");
+            $stmtUpd->bind_param('ssii', $gen['file_path'], $doneParams, $reportId, $clinic_id);
+            $stmtUpd->execute();
+
+            // Audit log
+            $auditDetails = json_encode(['report_code' => $reportCode, 'report_type' => $reportType, 'file_format' => $fileFormat, 'row_count' => $gen['row_count']]);
+            $stmtAudit = $conn->prepare("INSERT INTO audit_logs (clinic_id, user_id, action, entity_type, entity_id, details) VALUES (?, ?, 'GENERATE_REPORT', 'reports', ?, ?)");
+            if ($stmtAudit) {
+                $stmtAudit->bind_param('iiis', $clinic_id, $userId, $reportId, $auditDetails);
+                $stmtAudit->execute();
+            }
+
+            $_SESSION['flash_success'] = "Laporan '{$title}' ({$reportCode}) berhasil dibuat dalam format {$fileFormat} ({$gen['row_count']} baris data).";
+        } catch (Exception $e) {
+            $errParams = json_encode([
+                'report_code'   => $reportCode,
+                'start_date'    => $startDate,
+                'end_date'      => $endDate,
+                'file_format'   => $fileFormat,
+                'file_size'     => null,
+                'row_count'     => 0,
+                'error_message' => $e->getMessage(),
+            ]);
+            $stmtFail = $conn->prepare("UPDATE reports SET status = 'failed', parameters = ? WHERE id = ? AND clinic_id = ?");
+            $stmtFail->bind_param('sii', $errParams, $reportId, $clinic_id);
+            $stmtFail->execute();
+
+            $_SESSION['flash_error'] = 'Gagal membuat laporan: ' . $e->getMessage();
+        }
+
+        header('Location: laporan-operasional.php');
+        exit;
+    }
+
+    if ($action === 'retry_report') {
+        $reportId = (int)($_POST['report_id'] ?? 0);
+        $stmtGet = $conn->prepare("SELECT * FROM reports WHERE id = ? AND clinic_id = ? AND status = 'failed'");
+        $stmtGet->bind_param('ii', $reportId, $clinic_id);
+        $stmtGet->execute();
+        $rep = $stmtGet->get_result()->fetch_assoc();
+
+        if (!$rep) {
+            $_SESSION['flash_error'] = 'Data laporan gagal tidak ditemukan.';
+        } else {
+            $params = json_decode($rep['parameters'] ?? '{}', true) ?: [];
+            $reportCode = $params['report_code'] ?? ('RPT-' . date('Ym') . '-' . str_pad((string)$reportId, 3, '0', STR_PAD_LEFT));
+            $startDate  = $params['start_date'] ?? date('Y-m-01');
+            $endDate    = $params['end_date'] ?? date('Y-m-d');
+            $fileFormat = $params['file_format'] ?? 'PDF';
+
+            try {
+                $gen = generateReportFile($conn, $clinic_id, $clinicName, $reportCode, $rep['report_type'], $startDate, $endDate, $fileFormat);
+                $doneParams = json_encode([
+                    'report_code'   => $reportCode,
+                    'start_date'    => $startDate,
+                    'end_date'      => $endDate,
+                    'file_format'   => $fileFormat,
+                    'file_size'     => $gen['file_size'],
+                    'row_count'     => $gen['row_count'],
+                    'error_message' => null,
+                ]);
+                $stmtUpd = $conn->prepare("UPDATE reports SET status = 'completed', file_path = ?, parameters = ?, completed_at = NOW() WHERE id = ? AND clinic_id = ?");
+                $stmtUpd->bind_param('ssii', $gen['file_path'], $doneParams, $reportId, $clinic_id);
+                $stmtUpd->execute();
+
+                $auditDetails = json_encode(['report_code' => $reportCode, 'retry' => true]);
+                $stmtAudit = $conn->prepare("INSERT INTO audit_logs (clinic_id, user_id, action, entity_type, entity_id, details) VALUES (?, ?, 'RETRY_REPORT', 'reports', ?, ?)");
+                if ($stmtAudit) {
+                    $stmtAudit->bind_param('iiis', $clinic_id, $userId, $reportId, $auditDetails);
+                    $stmtAudit->execute();
+                }
+
+                $_SESSION['flash_success'] = "Laporan '{$rep['title']}' ({$reportCode}) berhasil dibuat ulang.";
+            } catch (Exception $e) {
+                $_SESSION['flash_error'] = 'Gagal membuat ulang laporan: ' . $e->getMessage();
+            }
+        }
+        header('Location: laporan-operasional.php');
+        exit;
+    }
+}
+
+$flashSuccess = $_SESSION['flash_success'] ?? null;
+$flashError   = $_SESSION['flash_error'] ?? null;
+unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+
+// 6. STATISTIK RIWAYAT LAPORAN
+$total_reports      = fetchCount($conn, "SELECT COUNT(*) FROM reports WHERE clinic_id = ?", $clinic_id);
+$completed_reports  = fetchCount($conn, "SELECT COUNT(*) FROM reports WHERE clinic_id = ? AND status = 'completed'", $clinic_id);
+$processing_reports = fetchCount($conn, "SELECT COUNT(*) FROM reports WHERE clinic_id = ? AND status IN ('queued', 'processing')", $clinic_id);
+$failed_reports     = fetchCount($conn, "SELECT COUNT(*) FROM reports WHERE clinic_id = ? AND status = 'failed'", $clinic_id);
+
+// 7. FILTER & PAGINATION RIWAYAT LAPORAN
+$filterSearch = trim($_GET['q'] ?? '');
+$filterType   = trim($_GET['type'] ?? '');
+$filterStatus = trim($_GET['status'] ?? '');
+$page         = max(1, (int)($_GET['page'] ?? 1));
+$perPage      = 10;
+$offset       = ($page - 1) * $perPage;
+
+$whereClauses = ['r.clinic_id = ?'];
+$bindTypes    = 'i';
+$bindValues   = [$clinic_id];
+
+if ($filterSearch !== '') {
+    $whereClauses[] = "(r.title LIKE ? OR r.parameters LIKE ?)";
+    $like = '%' . $filterSearch . '%';
+    $bindTypes .= 'ss';
+    $bindValues[] = $like;
+    $bindValues[] = $like;
+}
+if ($filterType !== '') {
+    $whereClauses[] = "r.report_type = ?";
+    $bindTypes .= 's';
+    $bindValues[] = $filterType;
+}
+if ($filterStatus !== '') {
+    if ($filterStatus === 'processing') {
+        $whereClauses[] = "r.status IN ('queued', 'processing')";
+    } else {
+        $whereClauses[] = "r.status = ?";
+        $bindTypes .= 's';
+        $bindValues[] = $filterStatus;
+    }
+}
+
+$whereSql = implode(' AND ', $whereClauses);
+
+// Total terfilter
+$stmtCount = $conn->prepare("SELECT COUNT(*) FROM reports r WHERE {$whereSql}");
+$stmtCount->bind_param($bindTypes, ...$bindValues);
+$stmtCount->execute();
+$filteredTotal = (int)$stmtCount->get_result()->fetch_row()[0];
+$totalPages = max(1, (int)ceil($filteredTotal / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+    $offset = ($page - 1) * $perPage;
+}
+
+// Daftar laporan
+$report_list = [];
+$sqlReports = "
+    SELECT r.*, COALESCE(u.name, 'Admin Klinik') AS created_by_name
+    FROM reports r
+    LEFT JOIN users u ON u.id = r.created_by
+    WHERE {$whereSql}
+    ORDER BY r.created_at DESC
+    LIMIT ? OFFSET ?
+";
+$bindTypesList = $bindTypes . 'ii';
+$bindValuesList = array_merge($bindValues, [$perPage, $offset]);
+$stmtList = $conn->prepare($sqlReports);
+if ($stmtList) {
+    $stmtList->bind_param($bindTypesList, ...$bindValuesList);
+    $stmtList->execute();
+    $report_list = $stmtList->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
 // Helper Status Badge
 function getReportBadge($status, $error_msg = '') {
-    switch (strtolower($status)) {
+    switch (strtolower((string)$status)) {
         case 'completed':
-            return '<span class="status-badge status-green">Completed</span>';
+            return '<span class="status-badge status-green">Selesai</span>';
         case 'queued':
-            return '<span class="status-badge status-orange">Queued</span><div class="td-sub-small mt-1 text-gray">Menunggu giliran</div>';
+            return '<span class="status-badge status-orange">Menunggu</span><div class="td-sub-small mt-1">Menunggu giliran</div>';
         case 'processing':
-            return '<span class="status-badge status-blue">Processing</span><div class="td-sub-small mt-1 text-gray">Memproses data...</div>';
+            return '<span class="status-badge status-blue">Sedang Diproses</span><div class="progress-track"><div class="progress-fill"></div></div><div class="td-sub-small mt-1">Memproses data...</div>';
         case 'failed':
-            return '<span class="status-badge status-red">Failed</span><div class="td-sub-small mt-1" style="color: #B91C1C;">'.h($error_msg ? $error_msg : 'Gagal memproses').'</div>';
+            return '<span class="status-badge status-red">Gagal</span><div class="td-sub-small mt-1" style="color: #B91C1C;">' . h($error_msg ?: 'Gagal memproses') . '</div>';
         default:
-            return '<span class="status-badge status-gray">'.$status.'</span>';
+            return '<span class="status-badge status-gray">' . h($status) . '</span>';
     }
 }
 ?>
@@ -85,57 +608,20 @@ function getReportBadge($status, $error_msg = '') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Laporan Operasional - <?= h($_SESSION['clinic_name']) ?></title>
+  <title>Pusat Laporan & Analitik - <?= h($clinicName) ?></title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/dashboard.css">
-  <link rel="stylesheet" href="../assets/css/laporan.css"> <!-- File CSS Baru -->
+  <link rel="stylesheet" href="../assets/css/dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/dashboard.css') ?>">
+  <link rel="stylesheet" href="../assets/css/reports.css?v=<?= filemtime(__DIR__ . '/../assets/css/reports.css') ?>">
 </head>
 <body class="dashboard-body">
 
   <!-- TOP NAVBAR -->
-  <header class="topbar">
-    <div class="topbar-brand">
-      <div class="logo-icon"><div class="logo-inner"></div></div>
-      <div class="brand-info">
-        <div class="brand-name"><?= h($_SESSION['clinic_name']) ?></div>
-        <div class="brand-meta">
-          <span class="badge-blue">klinik-sehat</span>
-          <span class="meta-text">Tenant tunggal · <?= h($_SESSION['clinic_code'] ?? 'klinik') ?>.platform.com</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="flex-spacer"></div>
-    
-    <div class="search-bar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" placeholder="Cari No. RM / Nama Pasien" class="search-input">
-    </div>
-    
-    <div class="datetime-widget">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      <span id="clock-top"></span>
-    </div>
-    
-    <button class="notif-btn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-      <span class="notif-dot"></span>
-    </button>
-    
-    <div class="user-profile">
-      <div class="avatar"><?= h(strtoupper(substr($_SESSION['user_name'], 0, 1))) ?></div>
-      <div class="user-info">
-        <span class="user-name"><?= h($_SESSION['user_name']) ?></span>
-        <span class="user-role">Admin Klinik</span>
-      </div>
-      <a href="../logout.php"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></a>
-    </div>
-  </header>
+  <?php require __DIR__ . '/../includes/topbar.php'; ?>
 
   <!-- MAIN LAYOUT -->
   <div class="dashboard-layout">
@@ -143,7 +629,7 @@ function getReportBadge($status, $error_msg = '') {
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-subtitle">KLINIK SEHAT BERSAMA</span>
+        <span class="sidebar-subtitle"><?= h(strtoupper($clinicName)) ?></span>
         <span class="sidebar-title">Manajemen internal</span>
       </div>
       
@@ -164,7 +650,7 @@ function getReportBadge($status, $error_msg = '') {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
           Master Data Klinik
         </a>
-        <a href="farmasi-stok.php" class="nav-item">
+        <a href="pharmacy-stock.php" class="nav-item">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           Farmasi & Stok
         </a>
@@ -173,7 +659,7 @@ function getReportBadge($status, $error_msg = '') {
           Laporan Operasional
         </a>
         <a href="pengaturan-klinik.php" class="nav-item">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           Pengaturan Klinik
         </a>
       </nav>
@@ -199,141 +685,177 @@ function getReportBadge($status, $error_msg = '') {
       
       <!-- Page Header -->
       <div class="page-heading">
-        <div class="breadcrumb"><?= h($_SESSION['clinic_name']) ?> / Laporan Operasional</div>
+        <div class="breadcrumb"><?= h($clinicName) ?> / Laporan Operasional</div>
         <div class="page-title-group">
           <h1>Pusat Laporan & Analitik</h1>
           <p>Generate dan unduh laporan operasional, kunjungan pasien, serta transaksi farmasi.</p>
         </div>
       </div>
 
-      <!-- SECTION 1: FORM BUAT LAPORAN BARU -->
-      <div class="data-panel" style="margin-bottom: 24px;">
-        <div class="panel-header" style="flex-direction: column; align-items: flex-start; border-bottom: none; padding-bottom: 0;">
-          <h3 style="font-size: 16px; color: var(--text-dark); margin-bottom: 4px;">Buat Laporan Baru</h3>
-          <p style="font-size: 12px; color: var(--text-gray); margin: 0;">Pilih tipe laporan, periode data, dan format file yang dibutuhkan.</p>
+      <!-- Flash Notification Alerts -->
+      <?php if ($flashSuccess): ?>
+        <div class="alert-banner alert-success" id="flashAlert">
+          <div class="alert-content">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span><?= h($flashSuccess) ?></span>
+          </div>
+          <button type="button" class="alert-close" onclick="document.getElementById('flashAlert').remove()" aria-label="Tutup">&times;</button>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($flashError): ?>
+        <div class="alert-banner alert-danger" id="flashAlert">
+          <div class="alert-content">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span><?= h($flashError) ?></span>
+          </div>
+          <button type="button" class="alert-close" onclick="document.getElementById('flashAlert').remove()" aria-label="Tutup">&times;</button>
+        </div>
+      <?php endif; ?>
+
+      <!-- CARD 1: KONFIGURASI & PEMBUATAN LAPORAN -->
+      <div class="data-panel report-config-card">
+        <div class="panel-header" style="flex-direction: column; align-items: flex-start; border-bottom: none; padding-bottom: 14px;">
+          <h3 style="font-size: 16px; color: var(--text-dark); margin: 0 0 4px 0;">Buat Laporan Baru</h3>
+          <p style="font-size: 12px; color: var(--text-gray); margin: 0;">Pilih jenis laporan, periode data, dan format file yang dibutuhkan.</p>
         </div>
         
-        <div class="panel-filters" style="border-top: none;">
-          <div class="filter-row" style="align-items: flex-end; gap: 16px;">
+        <form method="POST" action="laporan-operasional.php" class="panel-filters" style="border-top: none;">
+          <input type="hidden" name="action" value="generate_report">
+          <div class="report-form-grid">
             
-            <div class="form-group-report" style="flex: 1;">
-              <label>Tipe Laporan</label>
-              <select class="input-report">
-                <option>Rekap Kunjungan</option>
-                <option>Laporan Pemakaian Obat</option>
-                <option>Keuangan Tindakan</option>
+            <div class="form-group-report" style="flex: 1 1 240px;">
+              <label for="report_type">Jenis Laporan</label>
+              <select name="report_type" id="report_type" class="input-report" required>
+                <option value="kunjungan_pasien">Kunjungan &amp; Pasien</option>
+                <option value="rekam_medis_diagnosis">Rekam Medis &amp; Diagnosis</option>
+                <option value="farmasi_stok">Farmasi &amp; Stok Obat</option>
+                <option value="keuangan_pendapatan">Keuangan &amp; Pendapatan</option>
               </select>
             </div>
             
-            <div class="form-group-report" style="width: 350px;">
+            <div class="form-group-report" style="flex: 0 0 auto;">
               <label>Rentang Tanggal</label>
-              <div class="input-report" style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                  01 Okt 2026 — 27 Okt 2026
-                </span>
+              <div class="date-range-inputs">
+                <input type="date" name="start_date" id="start_date" class="input-report" value="<?= date('Y-m-01') ?>" required>
+                <span class="date-range-sep">—</span>
+                <input type="date" name="end_date" id="end_date" class="input-report" value="<?= date('Y-m-d') ?>" required>
               </div>
             </div>
             
-            <div class="form-group-report" style="width: 176px;">
-              <label>Format File</label>
-              <select class="input-report">
-                <option>PDF</option>
-                <option>Excel</option>
+            <div class="form-group-report" style="width: 170px;">
+              <label for="file_format">Format File</label>
+              <select name="file_format" id="file_format" class="input-report" required>
+                <option value="PDF">PDF</option>
+                <option value="Excel">Excel (.csv)</option>
               </select>
             </div>
             
-            <button class="btn-generate">
+            <button type="submit" class="btn-generate">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              Generate Laporan
+              Buat Laporan
             </button>
             
           </div>
           
-          <div style="display: flex; justify-content: space-between; margin-top: 16px;">
-            <span style="font-size: 11px; color: var(--text-gray);">Format tersedia: PDF / Excel · Tanggal mengikuti Asia/Jakarta (WIB)</span>
-            <span style="font-size: 11px; color: var(--text-gray);">Laporan akan muncul di antrean setelah dibuat.</span>
+          <div class="report-form-meta">
+            <span>Format tersedia: PDF / Excel (.csv) · Tanggal mengikuti Asia/Jakarta (WIB)</span>
+            <span>Laporan akan langsung diproses dan tersedia di daftar riwayat di bawah.</span>
           </div>
-        </div>
+        </form>
       </div>
 
-      <!-- SECTION 2: ANTREAN LAPORAN -->
+      <!-- CARD 2: RIWAYAT & STATUS LAPORAN -->
       <div class="data-panel">
         <div class="panel-header">
           <div class="panel-title-group" style="display: flex; flex-direction: column; gap: 4px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <h3 style="margin: 0; font-size: 16px;">Antrean Laporan</h3>
-              <span style="background: #F8FAFC; color: #475569; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;"><?= $total_reports ?> laporan</span>
+              <h3 style="margin: 0; font-size: 16px;">Riwayat Laporan</h3>
+              <span style="background: #F8FAFC; color: #475569; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);"><?= $total_reports ?> laporan</span>
             </div>
-            <p style="margin: 0; font-size: 12px; color: var(--text-gray);">Pantau proses pembuatan dan unduh laporan yang telah selesai.</p>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray);">Pantau status pembuatan dan unduh laporan yang telah selesai.</p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <span class="report-stat-pill" style="background: #ECFDF5; color: #047857;"><?= $completed_reports ?> selesai</span>
-            <span class="report-stat-pill" style="background: #EFF6FF; color: #2563EB;"><?= $queued_reports ?> dalam antrean</span>
+            <span class="report-stat-pill" style="background: #EFF6FF; color: #2563EB;"><?= $processing_reports ?> sedang diproses</span>
             <span class="report-stat-pill" style="background: #FEF2F2; color: #B91C1C;"><?= $failed_reports ?> gagal</span>
           </div>
         </div>
 
         <!-- Filters Table -->
-        <div class="panel-filters">
+        <form method="GET" action="laporan-operasional.php" class="panel-filters" id="filterReportForm">
           <div class="filter-row">
-            <div class="filter-search" style="width: 310px;">
+            <div class="filter-search">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input type="text" placeholder="Cari judul laporan" class="search-input">
+              <input type="text" name="q" id="searchReport" value="<?= h($filterSearch) ?>" placeholder="Cari judul atau kode laporan..." class="search-input" onkeyup="filterReportsLive()">
             </div>
-            <div class="filter-select">
-              <span>Status: Semua</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </div>
-            <div class="filter-select">
-              <span>Format: Semua</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </div>
+            <select name="type" id="filterReportType" class="filter-select" onchange="this.form.submit()">
+              <option value="">Jenis Laporan: Semua</option>
+              <option value="kunjungan_pasien" <?= $filterType === 'kunjungan_pasien' ? 'selected' : '' ?>>Kunjungan &amp; Pasien</option>
+              <option value="rekam_medis_diagnosis" <?= $filterType === 'rekam_medis_diagnosis' ? 'selected' : '' ?>>Rekam Medis &amp; Diagnosis</option>
+              <option value="farmasi_stok" <?= $filterType === 'farmasi_stok' ? 'selected' : '' ?>>Farmasi &amp; Stok Obat</option>
+              <option value="keuangan_pendapatan" <?= $filterType === 'keuangan_pendapatan' ? 'selected' : '' ?>>Keuangan &amp; Pendapatan</option>
+            </select>
+            <select name="status" id="filterReportStatus" class="filter-select" onchange="this.form.submit()">
+              <option value="">Status: Semua</option>
+              <option value="completed" <?= $filterStatus === 'completed' ? 'selected' : '' ?>>Selesai</option>
+              <option value="processing" <?= $filterStatus === 'processing' ? 'selected' : '' ?>>Sedang Diproses</option>
+              <option value="failed" <?= $filterStatus === 'failed' ? 'selected' : '' ?>>Gagal</option>
+            </select>
             <div class="flex-spacer"></div>
-            <span style="font-size: 11px; color: var(--text-gray);">Riwayat <?= date('F Y') ?></span>
+            <span style="font-size: 11px; color: var(--text-gray);">Riwayat <?= formatTanggalIndoShort(date('Y-m-d')) ?></span>
           </div>
-        </div>
+        </form>
 
         <!-- Table Data -->
         <div class="table-responsive">
-          <table class="data-table queue-table">
+          <table class="data-table queue-table" id="tableReportHistory">
             <thead>
               <tr>
-                <th width="22%">Judul Laporan</th>
-                <th width="15%">Tipe</th>
-                <th width="14%">Parameter Tanggal</th>
+                <th width="22%">Nama Laporan</th>
+                <th width="16%">Jenis</th>
+                <th width="16%">Rentang Tanggal</th>
                 <th width="15%">Dibuat Oleh</th>
-                <th width="14%">Status Laporan</th>
+                <th width="13%">Status Proses</th>
                 <th width="10%">Waktu Selesai</th>
-                <th width="10%">Aksi Unduh</th>
+                <th width="8%">Tindakan</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($report_list)): ?>
                 <tr>
                   <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-gray);">
-                    Belum ada antrean pembuatan laporan. Silakan buat laporan baru.
+                    Belum ada riwayat pembuatan laporan. Silakan buat laporan baru di atas.
                   </td>
                 </tr>
               <?php else: ?>
-                <?php foreach ($report_list as $row): ?>
+                <?php foreach ($report_list as $row): 
+                  $params     = json_decode($row['parameters'] ?? '{}', true) ?: [];
+                  $repCode    = $params['report_code'] ?? ('RPT-' . str_pad((string)$row['id'], 4, '0', STR_PAD_LEFT));
+                  $fileFmt    = $params['file_format'] ?? 'PDF';
+                  $fileSize   = $params['file_size'] ?? null;
+                  $startDt    = $params['start_date'] ?? null;
+                  $endDt      = $params['end_date'] ?? null;
+                  $errMsg     = $params['error_message'] ?? '';
+                  $dateRange  = ($startDt && $endDt) ? (formatTanggalIndoShort($startDt) . ' – ' . formatTanggalIndoShort($endDt)) : '-';
+                ?>
                   <tr>
                     <td>
                       <div class="td-main"><?= h($row['title']) ?></div>
-                      <div class="td-sub-small mt-1"><?= h($row['format_file']) ?> · <?= h($row['file_size'] ?? 'Permintaan baru') ?></div>
+                      <div class="td-sub-small mt-1"><?= h($repCode) ?> · <?= h($fileFmt) ?><?= $fileSize ? ' (' . h($fileSize) . ')' : '' ?></div>
                     </td>
-                    <td><div class="td-desc"><?= h($row['report_type']) ?></div></td>
-                    <td><div class="td-desc"><?= h($row['date_range']) ?></div></td>
+                    <td><div class="td-desc"><?= h(getReportTypeLabel($row['report_type'])) ?></div></td>
+                    <td><div class="td-desc"><?= h($dateRange) ?></div></td>
                     <td>
                       <div class="td-main fw-normal"><?= h($row['created_by_name']) ?></div>
-                      <div class="td-sub-small mt-1"><?= date('d M Y · H:i', strtotime($row['created_at'])) ?> WIB</div>
+                      <div class="td-sub-small mt-1"><?= formatTanggalIndoShort($row['created_at']) ?> · <?= date('H:i', strtotime($row['created_at'])) ?> WIB</div>
                     </td>
                     <td>
-                      <?= getReportBadge($row['status'], $row['error_message'] ?? '') ?>
+                      <?= getReportBadge($row['status'], $errMsg) ?>
                     </td>
                     <td>
-                      <?php if ($row['status'] === 'completed'): ?>
-                        <div class="td-desc"><?= date('d M Y', strtotime($row['completed_at'])) ?></div>
+                      <?php if ($row['status'] === 'completed' && !empty($row['completed_at'])): ?>
+                        <div class="td-desc"><?= formatTanggalIndoShort($row['completed_at']) ?></div>
                         <div class="td-sub-small mt-1"><?= date('H:i', strtotime($row['completed_at'])) ?> WIB</div>
                       <?php else: ?>
                         <div class="td-desc">—</div>
@@ -341,9 +863,19 @@ function getReportBadge($status, $error_msg = '') {
                     </td>
                     <td>
                       <?php if (strtolower($row['status']) === 'completed'): ?>
-                        <button class="btn-outline-blue" style="height: 32px; padding: 0 10px; font-size: 12px;">Unduh</button>
+                        <a href="laporan-operasional.php?download=<?= (int)$row['id'] ?>" target="<?= stripos($fileFmt, 'PDF') !== false ? '_blank' : '_self' ?>" class="btn-download-report">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                          Unduh
+                        </a>
                       <?php elseif (strtolower($row['status']) === 'failed'): ?>
-                        <a href="#" class="link-primary" style="font-size: 12px; font-weight: 600;">Coba Lagi</a>
+                        <form method="POST" action="laporan-operasional.php" style="margin:0;">
+                          <input type="hidden" name="action" value="retry_report">
+                          <input type="hidden" name="report_id" value="<?= (int)$row['id'] ?>">
+                          <button type="submit" class="btn-retry-report">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Buat Ulang
+                          </button>
+                        </form>
                       <?php else: ?>
                         <div class="td-desc">—</div>
                       <?php endif; ?>
@@ -356,25 +888,37 @@ function getReportBadge($status, $error_msg = '') {
         </div>
 
         <!-- Pagination -->
+        <?php
+          $startItem = $filteredTotal > 0 ? ($offset + 1) : 0;
+          $endItem   = min($offset + count($report_list), $filteredTotal);
+          $queryBase = http_build_query(array_filter([
+              'q'      => $filterSearch,
+              'type'   => $filterType,
+              'status' => $filterStatus,
+          ]));
+          $pagePrefix = $queryBase ? ('?' . $queryBase . '&page=') : '?page=';
+        ?>
         <div class="pagination-footer">
-          <div class="page-info">Menampilkan <?= count($report_list) ?> dari <?= $total_reports ?> laporan</div>
+          <div class="page-info" id="reportPageInfo">Menampilkan <?= $startItem ?>–<?= $endItem ?> dari <?= $filteredTotal ?> laporan</div>
           <div class="page-controls">
-            <button class="btn-page">Sebelumnya</button>
-            <div class="page-num active">1</div>
-            <button class="btn-page">Berikutnya</button>
+            <a href="<?= $page > 1 ? h($pagePrefix . ($page - 1)) : '#' ?>" class="btn-page <?= $page <= 1 ? 'disabled' : '' ?>">Sebelumnya</a>
+            <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+              <a href="<?= h($pagePrefix . $p) ?>" class="page-num <?= $p === $page ? 'active' : '' ?>"><?= $p ?></a>
+            <?php endfor; ?>
+            <a href="<?= $page < $totalPages ? h($pagePrefix . ($page + 1)) : '#' ?>" class="btn-page <?= $page >= $totalPages ? 'disabled' : '' ?>">Berikutnya</a>
           </div>
         </div>
       </div>
 
       <!-- Info Note -->
-      <div class="info-note" style="margin-top: 16px; margin-bottom: 24px; color: var(--text-gray); font-size: 11px;">
-        ⓘ Unduh tersedia hanya untuk laporan Completed. Jika laporan gagal, gunakan Coba Lagi untuk mengirim ulang permintaan.
+      <div class="info-note">
+        ⓘ Unduh tersedia hanya untuk laporan berstatus Selesai. Jika laporan gagal, gunakan Buat Ulang untuk memproses ulang permintaan dengan parameter yang sama.
       </div>
 
       <!-- Footer Dashboard -->
       <footer class="dashboard-footer" style="margin-top: auto; display: flex; justify-content: space-between;">
-        <span>© <?= date('Y') ?> <?= h($_SESSION['clinic_name']) ?> · Panel Kontrol Admin</span>
-        <span id="clock-main">Zona waktu Asia/Jakarta (WIB)</span>
+        <span>© <?= date('Y') ?> <?= h($clinicName) ?> · Panel Kontrol Admin</span>
+        <span>Zona waktu Asia/Jakarta (WIB)</span>
       </footer>
 
     </main>
@@ -385,11 +929,32 @@ function getReportBadge($status, $error_msg = '') {
     // JS Jam Digital Real-time
     function updateClock() {
         let s = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date()) + ' WIB';
-        document.getElementById('clock-top').textContent = s;
-        document.getElementById('clock-sidebar').textContent = s;
+        const cTop = document.getElementById('clock-top');
+        const cSide = document.getElementById('clock-sidebar');
+        if (cTop) cTop.textContent = s;
+        if (cSide) cSide.textContent = s;
     }
     updateClock();
     setInterval(updateClock, 60000);
+
+    // Filter live client-side untuk pencarian cepat judul / kode laporan
+    function filterReportsLive() {
+      const keyword = (document.getElementById('searchReport').value || '').toLowerCase();
+      const rows = document.querySelectorAll('#tableReportHistory tbody tr');
+      let visible = 0;
+
+      rows.forEach(row => {
+        if (row.cells.length < 7) return;
+        const nameAndCode = row.cells[0].textContent.toLowerCase();
+        const typeText    = row.cells[1].textContent.toLowerCase();
+        if (nameAndCode.includes(keyword) || typeText.includes(keyword)) {
+          row.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
   </script>
 
 </body>

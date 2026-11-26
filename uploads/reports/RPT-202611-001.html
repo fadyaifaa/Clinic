@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Rekap Kunjungan &amp; Pasien - RPT-202611-001</title>
+<style>
+  body { font-family: Inter, Arial, sans-serif; color: #0F172A; margin: 32px; background: #fff; }
+  .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
+  .btn-print { background: #2563EB; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  .header { border-bottom: 2px solid #0F172A; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .clinic-name { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; }
+  .report-title { font-size: 15px; font-weight: 600; color: #2563EB; margin: 0; }
+  .meta { text-align: right; font-size: 12px; color: #475569; line-height: 1.6; }
+  .summary-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #F1F5F9; color: #334155; text-align: left; padding: 9px 10px; border: 1px solid #CBD5E1; font-weight: 600; }
+  td { padding: 8px 10px; border: 1px solid #E2E8F0; color: #1E293B; }
+  @media print { .toolbar { display: none; } body { margin: 12px; } }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">Cetak / Simpan sebagai PDF</button>
+  </div>
+  <div class="header">
+    <div>
+      <h1 class="clinic-name">Klinik Sehat Bersama</h1>
+      <p class="report-title">Rekap Kunjungan &amp; Pasien</p>
+    </div>
+    <div class="meta">
+      <div>Kode: <strong>RPT-202611-001</strong></div>
+      <div>Periode: <strong>01 Nov 2026 - 26 Nov 2026</strong></div>
+      <div>Dicetak: 26/11/2026 08:58 WIB</div>
+    </div>
+  </div>
+  <div class="summary-box">Total Kunjungan: 1</div>
+  <table>
+    <thead><tr><th>No. Registrasi</th><th>Waktu Kunjungan</th><th>Nama Pasien</th><th>No. RM</th><th>Dokter</th><th>Tipe Kunjungan</th><th>Status</th><th>Keluhan</th></tr></thead>
+    <tbody><tr><td>REG-20261126-001</td><td>26/11/2026 06:36</td><td>Zhafirah Nurul Izzah</td><td>RM-2611-0001</td><td>Poli Umum</td><td>general</td><td>in_progress</td><td>Demam dan batuk</td></tr></tbody>
+  </table>
+</body>
+</html>
