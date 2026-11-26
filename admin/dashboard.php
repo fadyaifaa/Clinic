@@ -1,11 +1,5 @@
 <?php
-session_start();
-
-// Buat data login buatan (bypass)
-$_SESSION['clinic_id'] = 1; 
-$_SESSION['clinic_name'] = 'Klinik Sehat Bersama';
-$_SESSION['clinic_code'] = 'klinik-sehat';
-$_SESSION['user_name'] = 'Dahlia Cahya';
+require_once __DIR__ . '/../includes/auth.php';
 
 // Panggil koneksi database
 require_once __DIR__ . '/../config/database.php';

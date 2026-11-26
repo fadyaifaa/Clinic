@@ -1,15 +1,5 @@
 <?php
-session_start();
-
-// 1. Data login (Bypass sementara jika sistem auth belum siap)
-if (!isset($_SESSION['clinic_id'])) {
-    $_SESSION['clinic_id']   = 1;
-    $_SESSION['clinic_name'] = 'Klinik Sehat Bersama';
-    $_SESSION['clinic_code'] = 'klinik-sehat';
-    $_SESSION['user_name']   = 'Dahlia Cahya';
-    $_SESSION['user_id']     = 1;
-    $_SESSION['role_name']   = 'admin';
-}
+require_once __DIR__ . '/../includes/auth.php';
 
 // 2. Panggil koneksi database
 require_once __DIR__ . '/../config/database.php';

@@ -2,19 +2,7 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// 1. Data Login & Isolasi Tenant
-if (!isset($_SESSION['clinic_id'])) {
-    $_SESSION['clinic_id']   = 1; 
-    $_SESSION['clinic_name'] = 'Klinik Sehat Bersama';
-    $_SESSION['clinic_code'] = 'klinik-sehat';
-    $_SESSION['user_name']   = 'Dahlia Cahya';
-    $_SESSION['user_id']     = 1;
-    $_SESSION['role_name']   = 'admin';
-}
+require_once __DIR__ . '/../includes/auth.php';
 
 require_once __DIR__ . '/../config/database.php';
 

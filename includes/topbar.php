@@ -1,18 +1,11 @@
 <?php
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = 1;
-}
-if (!isset($_SESSION['role_name'])) {
-    $_SESSION['role_name'] = 'admin';
-}
-
-$topbarUserId    = (int)$_SESSION['user_id'];
-$topbarClinicId  = (int)($_SESSION['clinic_id'] ?? 1);
-$topbarRoleName  = strtolower((string)($_SESSION['role_name'] ?? 'admin'));
-$topbarUserName  = $_SESSION['user_name'] ?? 'Pengguna';
-$topbarUserEmail = '';
-$topbarClinicName = $_SESSION['clinic_name'] ?? 'Klinik Sehat Bersama';
-$topbarClinicCode = $_SESSION['clinic_code'] ?? 'klinik-sehat';
+$topbarUserId     = (int)($_SESSION['user_id'] ?? 0);
+$topbarClinicId   = (int)($_SESSION['clinic_id'] ?? 0);
+$topbarRoleName   = strtolower((string)($_SESSION['role_name'] ?? 'admin'));
+$topbarUserName   = $_SESSION['user_name'] ?? 'Pengguna';
+$topbarUserEmail  = '';
+$topbarClinicName = $_SESSION['clinic_name'] ?? 'Klinik';
+$topbarClinicCode = $_SESSION['clinic_code'] ?? 'klinik';
 
 if (!function_exists('topbarFormatRoleLabel')) {
     function topbarFormatRoleLabel($roleName) {

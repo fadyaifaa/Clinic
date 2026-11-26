@@ -19,7 +19,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit;
 }
 
+// Jika sudah login, langsung arahkan ke dashboard
+if (!empty($_SESSION['user_id']) && !empty($_SESSION['clinic_id'])) {
+    header('Location: admin/dashboard.php');
+    exit;
+}
+
 $err = '';
+if (isset($_GET['error']) && $_GET['error'] === 'auth_required') {
+    $err = 'Silakan masuk terlebih dahulu untuk mengakses halaman tersebut.';
+}
 $identifier = trim($_POST['email_or_phone'] ?? '');
 $password = $_POST['password'] ?? '';
 
@@ -34,6 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->get_result()->fetch_assoc();
 
         if ($user && (int)$user['is_active'] === 1 && password_verify($password, $user['password_hash'])) {
+            // Update waktu login terakhir
+            $stmtLastLogin = $conn->prepare("UPDATE users SET last_login_at = NOW() WHERE id = ?");
+            if ($stmtLastLogin) {
+                $stmtLastLogin->bind_param('i', $user['id']);
+                $stmtLastLogin->execute();
+            }
+
             // Ambil semua klinik & peran yang terafiliasi dengan akun ini
             $stmtRoles = $conn->prepare("
                 SELECT 
@@ -62,10 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'clinic_id'   => $cid,
                         'clinic_name' => $row['clinic_name'] ?? 'Klinik',
                         'clinic_code' => $row['clinic_code'] ?? 'klinik',
-                        'roles'       => []
+                        'roles'       => [],
+                        'role_ids'    => []
                     ];
                 }
-                $clinicsMap[$cid]['roles'][] = $row['role_name'];
+                $clinicsMap[$cid]['roles'][]    = $row['role_name'];
+                $clinicsMap[$cid]['role_ids'][] = (int)$row['role_id'];
             }
 
             // Jika akun hanya memiliki 1 role pada 1 klinik:
@@ -82,11 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($isSingleRoleSingleClinic) {
                 $firstClinic = !empty($clinicsMap) ? reset($clinicsMap) : null;
-                $_SESSION['user_id']     = $user['id'];
+                $_SESSION['user_id']     = (int)$user['id'];
                 $_SESSION['user_name']   = $user['name'];
                 $_SESSION['clinic_id']   = $firstClinic ? $firstClinic['clinic_id'] : 1;
                 $_SESSION['clinic_name'] = $firstClinic ? $firstClinic['clinic_name'] : 'Klinik';
                 $_SESSION['clinic_code'] = $firstClinic ? $firstClinic['clinic_code'] : 'klinik';
+                $_SESSION['role_id']     = ($firstClinic && !empty($firstClinic['role_ids'])) ? $firstClinic['role_ids'][0] : 1;
                 $_SESSION['role_name']   = ($firstClinic && !empty($firstClinic['roles'])) ? $firstClinic['roles'][0] : 'admin';
 
                 header('Location: admin/dashboard.php');
